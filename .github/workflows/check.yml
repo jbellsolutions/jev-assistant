@@ -19,6 +19,7 @@ jobs:
           node-version: '22.22.3'
           cache: npm
       - run: npm ci
+      - run: npx playwright install chromium
       - run: node scripts/scan-secrets.mjs
       - run: npm run build:keys && npm run build:audio-out
       - run: npm run check

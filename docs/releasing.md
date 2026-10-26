@@ -6,6 +6,7 @@ Use an Apple Silicon Mac and Node 22. Install Xcode Command Line Tools for Swift
 
 ```sh
 npm ci
+npx playwright install chromium
 npm run build:keys
 npm run build:audio-out
 npm run check

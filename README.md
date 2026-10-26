@@ -33,6 +33,7 @@ Use Node 22 on an Apple Silicon Mac:
 
 ```sh
 npm ci
+npx playwright install chromium
 npm run build:keys
 npm run build:audio-out
 npm run build:all
