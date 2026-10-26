@@ -12,6 +12,8 @@ Version 1.0.0 is published as a **preview**, with a public source repository and
 
 Supported preview target: Apple Silicon Mac, macOS 15+. Credentials, local accounts, private notes, device IDs and saved browser state do not ship.
 
+Release checks: **884 tests in 69 files**, TypeScript checks and renderer build passed. The relocated package smoke passed, including settings saving, task recovery and a real isolated Chrome extension action. Installer payload inspection confirmed Jev, Cua Driver and the standalone voice runtime, without private configuration, paired extension config or user-home payloads. The package is approximately 277 MB. Source credential scans passed after replacing legacy credential-shaped test fixtures; no push-protection exception was used. A clean physical Mac install and Apple notarization remain unverified.
+
 ## Deliberate next phase
 
 - A private, paired iPhone web companion saved to the Home Screen.
