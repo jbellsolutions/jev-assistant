@@ -1,0 +1,124 @@
+{
+  "name": "jev-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Jev desktop companion: live voice, saved tasks, local Chrome and Mac control.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,magenta \"tsx watch server/index.ts\" \"vite\"",
+    "build": "vite build",
+    "start": "npm run build && tsx server/index.ts",
+    "serve": "tsx server/index.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p client && tsc --noEmit -p extension",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm test && npm run build",
+    "build:app": "node scripts/build-app.mjs",
+    "build:extension": "node --import tsx scripts/build-extension.mjs",
+    "bridge:smoke": "node --import tsx scripts/bridge-smoke.mjs",
+    "app": "npm run build && npm run build:app && electron .",
+    "app:run": "electron .",
+    "app:fake": "npm run build && npm run build:app && electron . --remote-debugging-port=9223 --no-sandbox",
+    "build:icon": "node --import tsx scripts/build-icon.mjs",
+    "dist:mac": "npm run build:all && electron-builder --mac dir --publish never",
+    "voice": "node --import tsx scripts/voice.mjs",
+    "wake:smoke": "node --import tsx scripts/wake-smoke.mjs",
+    "speak:smoke": "node --import tsx scripts/speak-smoke.mjs",
+    "connect": "node --import tsx scripts/connect.mjs",
+    "brain:smoke": "node --import tsx scripts/brain-smoke.mjs",
+    "build:keys": "sh scripts/build-keys.sh",
+    "build:audio-out": "sh scripts/build-audio-out.sh",
+    "review": "node --import tsx scripts/review.mjs",
+    "manifest": "node --import tsx scripts/manifest.mjs",
+    "build:all": "npm run build && npm run build:app && npm run build:extension",
+    "voice:agent": "node dist/voice/agent.mjs",
+    "build:native": "sh scripts/build-native.sh && sh scripts/build-keys.sh && sh scripts/build-audio-out.sh",
+    "smoke:desktop": "node scripts/desktop-smoke.mjs",
+    "smoke:package": "node scripts/package-smoke.mjs",
+    "release:mac": "npm run build:all && electron-builder --mac dir --arm64 --publish never && node scripts/build-installer.mjs",
+    "build:installer": "node scripts/build-installer.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^4.0.102",
+    "@composio/core": "0.21.0",
+    "@composio/vercel": "0.12.1",
+    "@livekit/agents": "^1.9.4",
+    "@livekit/agents-plugin-openai": "^1.9.4",
+    "@livekit/rtc-node": "^1.2.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@novnc/novnc": "1.5.0",
+    "@openrouter/ai-sdk-provider": "3.1.0",
+    "@typesafe-ai/sdk": "^0.6.0",
+    "ai": "^7.0.153",
+    "express": "^5.2.1",
+    "livekit-client": "^2.23.0",
+    "livekit-server-sdk": "^2.19.2",
+    "mammoth": "1.13.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "unpdf": "1.8.1",
+    "ws": "^8.21.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.5.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "concurrently": "^10.0.5",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "playwright": "1.56.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.0",
+    "vite": "^7.3.6",
+    "vitest": "^5.0.5"
+  },
+  "main": "dist/app/main.mjs",
+  "build": {
+    "appId": "com.jev.app",
+    "productName": "Jev",
+    "asar": false,
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**",
+      "package.json",
+      "native/jev-keys/jev-keys",
+      "native/jev-audio-out/jev-audio-out",
+      "!dist/extension/config.json",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "third-party/**"
+    ],
+    "mac": {
+      "target": "dir",
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Jev uses the microphone during the live conversation you start. End conversation stops it.",
+        "NSAppleEventsUsageDescription": "Jev uses Apple Events to change this Mac's volume, appearance and playback when you ask it to."
+      },
+      "hardenedRuntime": true
+    },
+    "extraResources": [
+      {
+        "from": "build/runtime/node",
+        "to": "runtime/node"
+      }
+    ]
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jbellsolutions/jev-assistant.git"
+  }
+}

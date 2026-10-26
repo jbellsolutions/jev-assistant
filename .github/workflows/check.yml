@@ -1,0 +1,30 @@
+name: Check and build Mac preview
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mac:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/scan-secrets.mjs
+      - run: npm run build:keys && npm run build:audio-out
+      - run: npm run check
+      - run: npm run release:mac
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: Jev-mac-arm64-unsigned-preview
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
