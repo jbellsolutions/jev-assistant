@@ -110,7 +110,10 @@ try {
   await page.getByRole("button", { name: "Open browser", exact: true }).click();
   await page.getByText("Add Browser Use in Connection settings first", { exact: true }).waitFor();
   await page.getByRole("tab", { name: "Your screen", exact: true }).click();
+  await page.locator("#screen").waitFor();
   await page.route("**/assistant/browser", (route) => route.fulfill({ json: { url: `http://127.0.0.1:${port}/demo`, expiresAt: Date.now() + 60000 } }));
+  await desktop.evaluate(({ app, BrowserWindow }) => { app.show(); const w = BrowserWindow.getAllWindows()[0]; w.restore(); w.show(); });
+  await page.locator(".voice-orb-wrap:not(.paused)").waitFor({ state: "attached" });
   await page.getByRole("tab", { name: "Jarvis's browser", exact: true }).click();
   const cloudFrame = page.frameLocator('iframe[title="Jarvis browser — click and type"]');
   await cloudFrame.getByRole("link", { name: "Pricing", exact: true }).click();
@@ -177,6 +180,7 @@ try {
   const current = desktop?.windows().find((w) => !w.isClosed());
   if (current) {
     const out = path.join(root, "scratch", "verification"); mkdirSync(out, { recursive: true });
+    writeFileSync(path.join(out, "failed-window.json"), JSON.stringify(await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((w) => ({ visible: w.isVisible(), minimized: w.isMinimized(), bounds: w.getBounds() })))), { mode: 0o600 });
     await current.screenshot({ path: path.join(out, "failed-desktop.png"), timeout: 5000 }).catch(() => {});
     writeFileSync(path.join(out, "failed-frames.json"), JSON.stringify(await Promise.all(current.frames().map(async (f) => ({ url: f.url(), text: (await f.locator("body").innerText({ timeout: 2000 }).catch(() => "unavailable")).slice(0, 1500) })))), { mode: 0o600 });
   }
