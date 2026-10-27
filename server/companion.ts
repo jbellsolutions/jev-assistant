@@ -29,8 +29,10 @@ import { line } from "../core/lines.js";
 import { spokenPart } from "../core/speak.js";
 import { readState, writeState } from "./state.js";
 import type { AssistantRuntime } from "./assistant/runtime.js";
+import { PhoneAccess } from "./phone.js";
 
 export interface CompanionOptions {
+  phone?: { home: string; port?: number };
   assistant?: AssistantRuntime;
   decider: Decider;
   token?: string;
@@ -196,14 +198,17 @@ export function createCompanion(opts: CompanionOptions): Companion {
   const sttWss = new WebSocketServer({ noServer: true });
   const bridgeWss = new WebSocketServer({ noServer: true });
   let origins = allowedOrigins(0, opts.extraOrigins);
-  opts.assistant?.mount(app, (req, res, next) => {
+  const authorize: express.RequestHandler = (req, res, next) => {
     // Same-origin renderer fetches require a non-simple header; arbitrary sites get no CORS grant.
     const origin = req.header("origin");
     const ownOrigin = `${req.protocol}://${req.get("host")}`;
     const ui = req.header("x-jev-ui") === "1" && origins.has(ownOrigin) && (origin ? origins.has(origin) : req.header("sec-fetch-site") === "same-origin");
     if (ui || tokenPresented({ headers: { authorization: req.header("authorization") } }, auth)) return next();
     res.status(401).json({ error: "Open the Jev app or authenticate with its companion token" });
-  });
+  };
+  opts.assistant?.mount(app, authorize);
+  const phone = opts.phone && opts.assistant && opts.clientDir ? new PhoneAccess({ home: opts.phone.home, assistant: opts.assistant, clientDir: opts.clientDir }) : undefined;
+  phone?.mountDesktop(app, authorize);
   const unsubAssistantPause = opts.assistant ? hub.onPause((p) => opts.assistant!.setPaused(p)) : undefined;
   // the panel's files: allowed exactly like the panel's own socket (its origin, or the token)
   const attachments = opts.attachments ?? new AttachmentStore();
@@ -419,6 +424,7 @@ export function createCompanion(opts: CompanionOptions): Companion {
         /* no IPv6 loopback on this machine */
       }
       origins = allowedOrigins(bound, opts.extraOrigins);
+      await phone?.listen(opts.phone?.port ?? bound + 1);
       return bound;
     },
     register(executor) {
@@ -429,6 +435,7 @@ export function createCompanion(opts: CompanionOptions): Companion {
     },
     announce,
     async close() {
+      await phone?.close();
       if (typeof unsubAssistantPause === "function") unsubAssistantPause();
       await opts.assistant?.close();
       device?.stop();

@@ -1,6 +1,6 @@
 # Implemented architecture — October 27, 2026
 
-Phase 1 builds on the Electron desktop app with its local companion and Chrome extension. Phone access is a separate next phase.
+Jarvis builds on the Electron desktop app with its local companion and Chrome extension. Version 1.2 adds a separate phone gateway into the same task/voice runtime.
 
 ```mermaid
 flowchart TD
@@ -64,6 +64,8 @@ Approval cards and spoken answers are bound to a task and unique current request
 
 ## Security and packaging
 
+The configured phone gateway uses a separate IPv4 loopback listener (desktop port + 1). A trusted HTTPS tunnel forwards only this listener. Exact Host/Origin checks, non-simple request headers and private device cookies protect an explicit route allowlist. One-use five-minute pairing codes are issued only through desktop-authorized management routes; device hashes/expiry are stored atomically with mode 0600 outside source. Removing a device invalidates its session and requests active voice-room deletion, including a recheck after dispatch. Phone clients cannot call internal voice-worker callbacks, change remembered app permissions or open local control sockets. The phone's selected execution target goes to the same queue and existing per-action approvals as desktop requests. See docs/phone.md.
+
 The companion binds IPv4/IPv6 loopback. New task routes require bearer auth or an exact allowed-origin renderer with a non-simple header. The Chrome bridge always requires its pairing token. Foreign browser origins are rejected.
 
 Electron keeps context isolation and disables Node integration in the renderer. Microphone permission is requested by the actual conversation path, not merely app startup. Main-window navigation stays on the companion origin; external HTTP links open in the user's browser.
@@ -72,4 +74,4 @@ The app package excludes `.env` and paired extension credentials. On startup it 
 
 ## Future work
 
-After account/audio validation, test real Slack, GoHighLevel and ChatGPT workflows, improve outcome classification and step-level evidence, and measure cost/latency on representative tasks. Add project dependencies, remote phone access and an always-on host only after the local desktop loop is dependable.
+After account/audio validation, test real Slack, GoHighLevel and ChatGPT workflows, improve outcome classification and step-level evidence, and measure cost/latency on representative tasks. Test phone audio on physical iPhone hardware. Project dependencies and an always-on host remain future work.

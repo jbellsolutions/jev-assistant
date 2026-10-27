@@ -10,6 +10,7 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
   const [error, setError] = useState("");
   const [speaking, setSpeaking] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
+  const [needsAudio, setNeedsAudio] = useState(false);
   const [transcripts, setTranscripts] = useState<Array<{ id: string; who: string; text: string }>>([]);
   const roomRef = useRef<Room | null>(null);
   const serverRoom = useRef("");
@@ -23,7 +24,7 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
     generation.current++;
     const room = roomRef.current; roomRef.current = null;
     const name = serverRoom.current; serverRoom.current = "";
-    setState("off"); setSpeaking(false); setUserSpeaking(false);
+    setState("off"); setSpeaking(false); setUserSpeaking(false); setNeedsAudio(false);
     for (const el of audio.current) el.remove(); audio.current.clear();
     await room?.disconnect();
     if (name) await assistantFetch(transport, "/voice/end", { room: name }).catch(() => setError("Voice disconnected locally; verify the LiveKit room has ended."));
@@ -38,6 +39,7 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
       if (gen !== generation.current) { await assistantFetch(transport, "/voice/end", { room: info.room }); return; }
       serverRoom.current = info.room;
       const room = new Room({ adaptiveStream: true, dynacast: true }); roomRef.current = room;
+      room.on(RoomEvent.AudioPlaybackStatusChanged, (allowed) => { if (roomRef.current === room) setNeedsAudio(!allowed); });
       room.on(RoomEvent.TrackSubscribed, (track) => {
         if (track.kind !== Track.Kind.Audio) return;
         const element = track.attach(); element.muted = muteRef.current || hushFlag.current; element.style.display = "none"; document.body.append(element); audio.current.add(element);
@@ -73,7 +75,9 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
         if (Date.now() > end) throw new Error("The live voice model did not connect. Check your account settings and try again.");
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
-      await room.startAudio();
+      // Safari can require a second user gesture after the network connection completes.
+      await room.startAudio().catch(() => {});
+      setNeedsAudio(!room.canPlaybackAudio);
       if (gen !== generation.current) return;
       await room.localParticipant.setMicrophoneEnabled(true);
       if (gen !== generation.current) { await room.localParticipant.setMicrophoneEnabled(false); return; }
@@ -101,5 +105,6 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
   }, [stop]);
   const hush = useCallback(() => { hushFlag.current = true; for (const el of audio.current) el.muted = true; setSpeaking(false); }, []);
   const changeTarget = useCallback(async (next: WorkTarget) => { const name = serverRoom.current; if (name) await assistantFetch(transport, "/voice/target", { room: name, target: next }); }, [transport]);
-  return { state, error, speaking, userSpeaking, transcripts, start, stop, hush, changeTarget };
+  const enableAudio = useCallback(async () => { try { await roomRef.current?.startAudio(); setNeedsAudio(roomRef.current ? !roomRef.current.canPlaybackAudio : false); } catch { setError("Tap to enable sound again, and check your phone’s audio output."); } }, []);
+  return { state, error, speaking, userSpeaking, transcripts, start, stop, hush, changeTarget, needsAudio, enableAudio };
 }

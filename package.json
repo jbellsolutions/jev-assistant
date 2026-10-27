@@ -1,6 +1,6 @@
 {
   "name": "jev-assistant",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "description": "Jarvis desktop companion: live voice, saved tasks, local Chrome and Mac control.",
@@ -37,6 +37,7 @@
     "voice:agent": "node dist/voice/agent.mjs",
     "build:native": "sh scripts/build-native.sh && sh scripts/build-keys.sh && sh scripts/build-audio-out.sh",
     "smoke:desktop": "node scripts/desktop-smoke.mjs",
+    "smoke:phone": "node --import tsx scripts/phone-smoke.mjs",
     "smoke:package": "node scripts/package-smoke.mjs",
     "release:mac": "npm run build:all && electron-builder --mac dir --arm64 --publish never && node scripts/build-installer.mjs",
     "build:installer": "node scripts/build-installer.mjs"

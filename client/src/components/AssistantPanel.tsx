@@ -8,6 +8,7 @@ import { ConnectionEditor } from "./ConnectionEditor.tsx";
 import { ConnectedApps } from "./ConnectedApps.tsx";
 import { VoiceOrb } from "./VoiceOrb.tsx";
 import { Permissions } from "./Permissions.tsx";
+import { PhoneSettings } from "./PhoneSettings.tsx";
 
 export function AssistantPanel({ status, error, target, onTarget, voice, transport, refresh, quick, onQuick, onScreen = true }: {
   status: AssistantStatus | null; error: string; target: WorkTarget; onTarget(v: WorkTarget): void;
@@ -18,6 +19,7 @@ export function AssistantPanel({ status, error, target, onTarget, voice, transpo
   const [busy, setBusy] = useState(false);
   const [editingConnections, setEditingConnections] = useState(false);
   const [editingPermissions, setEditingPermissions] = useState(false);
+  const [editingPhone, setEditingPhone] = useState(false);
   const [corrections, setCorrections] = useState<Record<string, string>>({});
   const act = async (route: string, body: unknown) => {
     setBusy(true); setActionError("");
@@ -40,11 +42,13 @@ export function AssistantPanel({ status, error, target, onTarget, voice, transpo
     <div className={`live-voice ${voice.state}`}>
       <VoiceOrb state={voice.state} speaking={voice.speaking} userSpeaking={voice.userSpeaking} visible={onScreen} />
       <button className="live-talk" type="button" onClick={() => void (voice.state === "off" ? voice.start() : voice.stop())}>{voice.state === "connecting" ? "Cancel connection" : voice.state === "on" ? "End conversation" : "Talk to Jarvis"}</button>
+      {voice.needsAudio && <button type="button" onClick={() => void voice.enableAudio()}>Tap to enable sound</button>}
       <span>{voice.state === "on" ? "Live conversation · speak and interrupt naturally" : voice.state === "connecting" ? "Connecting LiveKit and GPT-Live…" : "Two-way live voice · no recording or Send button"}</span>
     </div>
     {voice.transcripts.length > 0 && <div className="voice-transcript" aria-live="polite">{voice.transcripts.slice(-3).map((t) => <p key={t.id}><b>{t.who}:</b> {t.text}</p>)}</div>}
     {(voice.error || actionError || error) && <p className="assistant-error" role="status">{voice.error || actionError || error}</p>}
     <details className="connection-settings" onToggle={(e) => setEditingPermissions(e.currentTarget.open)}><summary>Permissions</summary>{editingPermissions && <Permissions transport={transport} />}</details>
+    <details className="connection-settings" onToggle={(e) => setEditingPhone(e.currentTarget.open)}><summary>Connect iPhone</summary>{editingPhone && <PhoneSettings transport={transport} />}</details>
     <details className="connection-settings"><summary>Connection settings</summary>
       <p>{c?.openai ? "OpenAI configured" : "OpenAI not connected"} · {c?.livekit ? "LiveKit configured" : "LiveKit not connected"} · {c?.browserUse ? "Cloud browser configured" : "Cloud browser not connected"} · {c?.typesafe ? "Jarvis decisions configured" : "Jarvis decisions not connected"}</p>
       {window.jev?.saveConnections ? <button type="button" onClick={() => setEditingConnections(true)}>Edit connections</button> : <p>Open the desktop app to update your connections.</p>}

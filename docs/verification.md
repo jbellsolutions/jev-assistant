@@ -1,5 +1,15 @@
 # Phase 1 verification
 
+## Jarvis 1.2 iPhone companion
+
+**916 tests in 76 files** passed, plus TypeScript and the renderer build. Seven new gateway tests cover one-use pairing, private hashed-cookie persistence, device/code expiry, bounded guesses, revocation, HTTPS-origin checks, excluded control/settings/worker routes, shared cloud/Mac tasks, duplicate request IDs, logout and the desktop management boundary.
+
+The phone smoke passed in **Chromium and WebKit at an iPhone 13 viewport through a real local HTTPS reverse proxy**. With synthetic tasks and disposable profiles it paired, submitted cloud and Mac work to the shared queue, approved a pending action, preserved access across reload, surfaced missing voice/browser credentials, rejected revoked access and checked horizontal layout. It performs no real sends or provider work. Screenshots were visually reviewed. The initial smoke assertion expected a connection label without its adjacent button text; the locator was corrected to the actual connection indicator before both complete browser runs passed.
+
+The relocated 1.2.0 package smoke passed: phone configuration/code presentation/disable, connection editing, cancellation during voice startup, real isolated Chrome clicks/typing, divider persistence, embedded viewer interaction, renderer/window recovery, graceful quit, saved tasks across restart, and forced termination/relaunch with Chrome reconnection. Packaged voice dependencies resolved inside the relocated application. The source credential scan found no credential findings.
+
+These checks do not constitute physical iPhone microphone, audio, interruption, cellular reconnect or background behavior verification. The phone shares the existing LiveKit path; a human conversation on real iPhone hardware remains required. The desktop retains its unsigned Apple Silicon/macOS 15+ preview status. HTTPS tunnel ownership/access and an awake Mac are prerequisites. [Setup, architecture and limits](phone.md).
+
 ## Jarvis 1.1 update
 
 The product is now Jarvis, with purple styling, two adjustable workspace dividers, interactive local Chrome input, a separate Browser Use viewer and account-specific remembered API permissions. The private profile and application identity remain compatible with Jev.
@@ -42,6 +52,6 @@ No credentials, account identifiers, private project IDs, browser sessions, task
 
 ## Remaining validation
 
-The following are not claimed as independently verified for every installer user: a clean physical Mac installation, Apple notarization, Chrome Web Store installation, authenticated Slack/GoHighLevel/ChatGPT workflows, live Composio execution, exhaustive exactly-once external effects, Intel/Windows support, or iPhone access. Native Mac permissions must be granted by each user.
+The following are not claimed as independently verified for every installer user: a clean physical Mac installation, Apple notarization, Chrome Web Store installation, authenticated Slack/GoHighLevel/ChatGPT workflows, live Composio execution, exhaustive exactly-once external effects, Intel/Windows support, or physical iPhone audio. Native Mac permissions must be granted by each user.
 
 See [Phase 1 handoff](phase-1.md) for release-specific results and limitations.

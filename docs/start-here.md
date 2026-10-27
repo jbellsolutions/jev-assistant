@@ -4,11 +4,11 @@ Jarvis is a desktop assistant you can talk to naturally. It can work in Chrome, 
 
 ## Install
 
-1. Download **Jarvis-1.1.1-mac-arm64.pkg** from the [download page](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.1.1-preview.1).
+1. Download **Jarvis-1.2.0-mac-arm64.pkg** from the [download page](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.2.0-preview.1).
 2. Open the installer and follow the Mac's instructions. It installs **Jarvis** and **Cua Driver**, the helper for Mac control, in Applications. No coding tools or terminal are needed.
 3. Open **Jarvis** from Applications.
 
-**Supported first release:** Apple Silicon Macs (M1 or newer), macOS 15 or newer. Intel Macs, Windows and an iPhone app are not included.
+**Supported desktop:** Apple Silicon Macs (M1 or newer), macOS 15 or newer. Intel Macs and Windows are not included. iPhone access uses the web companion and a separately configured HTTPS tunnel.
 
 **Preview signing:** this download is an unsigned preview. Normal warning-free distribution still needs the maintainer's Apple Developer signing and notarization. If macOS blocks it, this is a release-signing issue; do not disable your Mac's security protections. A signed release will use the same installer steps.
 
@@ -77,4 +77,4 @@ Choose **Your screen** for the Mac or your connected Chrome tab, or **Co-founder
 - **Multiple connected app accounts:** use a Composio user ID with the intended single active account for each app. Jarvis refuses to guess the identity.
 - **Update:** quit Jarvis, run the newer installer, and reopen it. Settings and tasks stay in your home folder. Reload the Jarvis extension once to use its new code. This preview has manual app updates.
 
-For iPhone, see [Phone access](phone.md). This Mac installer does not create a phone-access URL.
+For iPhone, open **Connect iPhone** on the Mac and follow [Phone setup](phone.md). Pair your phone, then save Jarvis to your Home Screen. Select **Jarvis browser** for cloud research/work or **My computer at home** for your Mac. Tunnel setup is separate; this installer does not create a public URL.
