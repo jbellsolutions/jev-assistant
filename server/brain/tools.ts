@@ -53,6 +53,7 @@ export function isSeen(v: unknown): v is Seen {
 export interface ToolContext {
   /** Ask the user before a write. Resolves false on "no", on Stop, and when the run ends. */
   ask(summary: string): Promise<boolean>;
+  appWriteAllowed?: (slug: string) => boolean;
   signal: AbortSignal;
   /** Where this run's Mac actions are recorded: a screenshot of the window after each one, numbered
    *  in order. `started` once the first is written, so the run log can name the folder. */

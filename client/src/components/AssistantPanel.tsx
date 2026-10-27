@@ -7,6 +7,7 @@ import { WORK_TARGET_LABELS } from "../../../core/assistant.ts";
 import { ConnectionEditor } from "./ConnectionEditor.tsx";
 import { ConnectedApps } from "./ConnectedApps.tsx";
 import { VoiceOrb } from "./VoiceOrb.tsx";
+import { Permissions } from "./Permissions.tsx";
 
 export function AssistantPanel({ status, error, target, onTarget, voice, transport, refresh, quick, onQuick, onScreen = true }: {
   status: AssistantStatus | null; error: string; target: WorkTarget; onTarget(v: WorkTarget): void;
@@ -16,6 +17,7 @@ export function AssistantPanel({ status, error, target, onTarget, voice, transpo
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingConnections, setEditingConnections] = useState(false);
+  const [editingPermissions, setEditingPermissions] = useState(false);
   const [corrections, setCorrections] = useState<Record<string, string>>({});
   const act = async (route: string, body: unknown) => {
     setBusy(true); setActionError("");
@@ -24,26 +26,27 @@ export function AssistantPanel({ status, error, target, onTarget, voice, transpo
     finally { setBusy(false); }
   };
   const c = status?.connections;
-  const active = status?.tasks.filter((t) => !["completed", "failed", "cancelled"].includes(t.status)).length ?? 0;
+  const active = status?.tasks.filter((t) => ["queued", "running", "waiting_for_user"].includes(t.status)).length ?? 0;
   const control = (t: WorkTask, action: string) => void act(`/tasks/${t.id}/control`, { action, correction: corrections[t.id] });
-  return <section className="assistant-panel" aria-label="Jev assistant">
-    {c && (!c.openai || !c.livekit) && <div className="first-run"><strong>Welcome to Jev</strong><p>1. Add your OpenAI and LiveKit connections for live conversation.</p><p>2. Add TypeSafe Jev and Browser Use for fast decisions and cloud tasks.</p><p>3. Connect Chrome and allow Mac control when you want Jev to act here.</p>{window.jev?.saveConnections && <button type="button" onClick={() => setEditingConnections(true)}>Set up Jev</button>}<p>Bring your own accounts. Their voice, model and browser charges are billed separately.</p></div>}
+  return <section className="assistant-panel" aria-label="Jarvis assistant">
+    {c && (!c.openai || !c.livekit) && <div className="first-run"><strong>Welcome to Jarvis</strong><p>1. Add your OpenAI and LiveKit connections for live conversation.</p><p>2. Add TypeSafe Jev and Browser Use for fast decisions and cloud tasks.</p><p>3. Connect Chrome and allow Mac control when you want Jarvis to act here.</p>{window.jev?.saveConnections && <button type="button" onClick={() => setEditingConnections(true)}>Set up Jarvis</button>}<p>Bring your own accounts. Their voice, model and browser charges are billed separately.</p></div>}
     <div className="assistant-heading"><strong>At your service</strong><span>{active ? `${active} task${active === 1 ? "" : "s"} in progress` : "Ready when you are"}</span></div>
     <label className="work-target">Work in
-      <select aria-label="Work environment" value={target} disabled={voice.state !== "off"} onChange={(e) => { onTarget(e.target.value as WorkTarget); if (e.target.value !== "local") onQuick(false); }}>
+      <select aria-label="Work environment" value={target} disabled={voice.state === "connecting"} onChange={(e) => { onTarget(e.target.value as WorkTarget); if (e.target.value !== "local") onQuick(false); }}>
         {Object.entries(WORK_TARGET_LABELS).map(([key, name]) => <option key={key} value={key}>{name}</option>)}
       </select>
     </label>
     <div className="connection-strip"><span className={c?.chrome ? "ready" : ""}>Chrome {c?.chrome ? "connected" : "not connected"}</span><span className={c?.computer ? "ready" : ""}>Mac {c?.computer ? "connected" : "not connected"}</span></div>
     <div className={`live-voice ${voice.state}`}>
       <VoiceOrb state={voice.state} speaking={voice.speaking} userSpeaking={voice.userSpeaking} visible={onScreen} />
-      <button className="live-talk" type="button" onClick={() => void (voice.state === "off" ? voice.start() : voice.stop())}>{voice.state === "connecting" ? "Cancel connection" : voice.state === "on" ? "End conversation" : "Talk to Jev"}</button>
+      <button className="live-talk" type="button" onClick={() => void (voice.state === "off" ? voice.start() : voice.stop())}>{voice.state === "connecting" ? "Cancel connection" : voice.state === "on" ? "End conversation" : "Talk to Jarvis"}</button>
       <span>{voice.state === "on" ? "Live conversation · speak and interrupt naturally" : voice.state === "connecting" ? "Connecting LiveKit and GPT-Live…" : "Two-way live voice · no recording or Send button"}</span>
     </div>
     {voice.transcripts.length > 0 && <div className="voice-transcript" aria-live="polite">{voice.transcripts.slice(-3).map((t) => <p key={t.id}><b>{t.who}:</b> {t.text}</p>)}</div>}
     {(voice.error || actionError || error) && <p className="assistant-error" role="status">{voice.error || actionError || error}</p>}
+    <details className="connection-settings" onToggle={(e) => setEditingPermissions(e.currentTarget.open)}><summary>Permissions</summary>{editingPermissions && <Permissions transport={transport} />}</details>
     <details className="connection-settings"><summary>Connection settings</summary>
-      <p>{c?.openai ? "OpenAI configured" : "OpenAI not connected"} · {c?.livekit ? "LiveKit configured" : "LiveKit not connected"} · {c?.browserUse ? "Cloud browser configured" : "Cloud browser not connected"} · {c?.typesafe ? "Jev decisions configured" : "Jev decisions not connected"}</p>
+      <p>{c?.openai ? "OpenAI configured" : "OpenAI not connected"} · {c?.livekit ? "LiveKit configured" : "LiveKit not connected"} · {c?.browserUse ? "Cloud browser configured" : "Cloud browser not connected"} · {c?.typesafe ? "Jarvis decisions configured" : "Jarvis decisions not connected"}</p>
       {window.jev?.saveConnections ? <button type="button" onClick={() => setEditingConnections(true)}>Edit connections</button> : <p>Open the desktop app to update your connections.</p>}
       <p>Orgo {c?.orgo ? "configured" : "not connected"} · App tools {c?.composio ? "configured" : "not connected"}</p>
       <ConnectedApps transport={transport} configured={!!c?.composio} />

@@ -1,8 +1,9 @@
-# Working on Jev Assistant
+# Working on Jarvis (formerly Jev Assistant)
 
 This is the canonical new project folder. Read README.md and docs/architecture.md before implementation. The existing Electron app, local companion and Chrome extension are now integrated here. Read docs/verification.md before making claims about live account or audio behavior.
 
 - Follow the user's current direction: LiveKit + GPT-Live 1; TypeSafe Jev for judgments; GPT-6 Luna for worker reasoning; Browser Use Cloud. Preserve the Electron desktop app and include the local companion and Chrome extension from the start; they are central to the user's Jarvis-like assistant.
+- The product name is Jarvis; TypeSafe Jev remains the model name. Keep legacy bundle IDs, private data paths and protocol IDs compatible through the rename.
 - Keep voice sessions independent of persistent task execution. Start with one worker and a queue; retain recovery, cancellation, and evidence from the beginning.
 - Prefer Browser Use's hosted V4 agent for the initial browser worker. Do not silently substitute Steel, Browserbase, an old Hermes service, or a new general browser executor.
 - Preserve the old folders. The original desktop/control sources and tests have been ported here. Make all new changes in this folder and leave the older projects intact.

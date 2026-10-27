@@ -24,7 +24,7 @@ export class TaskQueue {
   private enabled = true;
   private execution: Promise<void> | null = null;
   private lockFile: string;
-  constructor(private readonly opts: { dir: string; workers: Record<WorkTarget, TaskWorker>; now?: () => number }) {
+  constructor(private readonly opts: { dir: string; workers: Record<WorkTarget, TaskWorker>; now?: () => number; pauseQueuedAtStartup?: boolean }) {
     mkdirSync(opts.dir, { recursive: true, mode: 0o700 });
     this.lockFile = path.join(opts.dir, ".owner");
     const takeLock = () => { const fd = openSync(this.lockFile, "wx", 0o600); writeFileSync(fd, String(process.pid)); closeSync(fd); };
@@ -43,6 +43,7 @@ export class TaskQueue {
       if (!task || typeof task.id !== "string" || !/^[a-f0-9-]{36}$/.test(task.id) || name !== `${task.id}.json` || !["local", "cloud", "orgo"].includes(task.target) || !Array.isArray(task.history)) continue;
       this.tasks.set(task.id, task);
       if (task.requestId) this.requests.set(task.requestId, task.id);
+      if (opts.pauseQueuedAtStartup && task.status === "queued" && !task.providerRunId) this.patch(task.id, { status: "paused", approval: undefined, progress: "Saved task paused after restart. Resume to review its current state." });
       if (["running", "waiting_for_user"].includes(task.status)) {
         this.patch(task.id, task.target === "cloud" && task.providerRunId
           ? { status: "queued", approval: undefined, progress: "Reconnecting to the existing cloud run" }
@@ -54,6 +55,7 @@ export class TaskQueue {
   get(id: string): WorkTask { const t = this.tasks.get(id); if (!t) throw new Error("Task not found"); return structuredClone(t); }
   subscribe(fn: () => void): () => void { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   start(): void { this.kick(); }
+  async settled(id: string): Promise<void> { if (this.active?.id === id) await this.execution; }
   setEnabled(enabled: boolean): void { this.enabled = enabled; if (enabled) this.kick(); else if (this.active) void this.control(this.active.id, "pause"); }
   submit(goal: string, target: WorkTarget, requestId?: string, attachments?: WorkTask["attachments"]): WorkTask {
     if (this.closed) throw new Error("Task service is shutting down");
@@ -75,7 +77,8 @@ export class TaskQueue {
     // A task-scoped approval only; never persist broad grants from a voice interpretation.
     if (!["once", "deny"].includes(choice)) throw new Error("Choose allow once or deny");
     await this.opts.workers[t.target].approve?.(id, choice, requestId);
-    if (this.get(id).status === "waiting_for_user") this.patch(id, { status: "running", approval: undefined, progress: choice === "deny" ? "Action declined" : "Continuing" });
+    const after = this.get(id);
+    if (after.status === "waiting_for_user" && after.approval?.requestId === requestId) this.patch(id, { status: "running", approval: undefined, progress: choice === "deny" ? "Action declined" : "Continuing" });
   }
   async control(id: string, action: "pause" | "resume" | "cancel", correction?: string): Promise<void> {
     let t = this.get(id);

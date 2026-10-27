@@ -2,19 +2,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ClientMessage } from "../../../core/protocol.ts";
 import { type Zoom, freshness, frameFraction, keystroke, stepZoom } from "../layout.ts";
 import type { PaneTab, State } from "../state.ts";
-import { BrowserView } from "./BrowserView.tsx";
 import { CofounderView } from "./CofounderView.tsx";
+import { CloudBrowser } from "./CloudBrowser.tsx";
+import type { Transport } from "../transport.ts";
 
 interface Props {
+  transport: Transport;
+  cloudRunning?: boolean;
   page: State["page"];
-  /** Where Jev is working in its own minimized Chrome window (no picture exists of it). */
+  /** Where Jarvis is working in its own minimized Chrome window (no picture exists of it). */
   jevChrome?: State["jevChrome"];
   status: State["status"];
   connected: boolean;
   send: (msg: ClientMessage) => void;
   /** Keep the real viewport at this size and scale the frame to fit (small panels). */
   fixedViewport?: { width: number; height: number };
-  /** Jev's own browser, live (null: only the screen view exists). */
+  /** Jarvis's own browser, live (null: only the screen view exists). */
   browserView?: string | null;
   tab?: PaneTab;
   onTab?: (tab: PaneTab) => void;
@@ -40,14 +43,14 @@ function useNow(ms: number, enabled: boolean): number {
   return now;
 }
 
-export function LiveView({ page, jevChrome = null, status, connected, send, fixedViewport, browserView = null, tab = "screen", onTab, height, cofounder = null, cofounderView = null, cofounderFrame = null, onScreen = true }: Props) {
+export function LiveView({ transport, cloudRunning = false, page, jevChrome = null, status, connected, send, fixedViewport, browserView = null, tab = "screen", onTab, height, cofounder = null, cofounderView = null, cofounderFrame = null, onScreen = true }: Props) {
   const sized = height !== undefined;
-  const showBrowser = !!browserView && tab === "browser";
+  const showBrowser = tab === "browser";
   const showCofounder = !!cofounder && tab === "cofounder";
   const showScreen = !showBrowser && !showCofounder;
   const boxRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
-  // Each view keeps its own zoom: shrinking Jev's browser shouldn't shrink the picture of your screen.
+  // Each view keeps its own zoom: shrinking Jarvis's browser shouldn't shrink the picture of your screen.
   const [zooms, setZooms] = useState<Record<PaneTab, Zoom>>({ browser: "fit", screen: "fit", cofounder: "fit" });
   const view: PaneTab = showBrowser ? "browser" : showCofounder ? "cofounder" : "screen";
   const zoom = zooms[view];
@@ -130,12 +133,12 @@ export function LiveView({ page, jevChrome = null, status, connected, send, fixe
   return (
     <section className={`browser-pane${sized ? " sized" : ""}`} style={height ? { height } : undefined}>
       <div className="urlbar">
-        {(browserView || cofounder) && onTab && (
+        {onTab && (
           <div className="pane-tabs" role="tablist" aria-label="What the big pane shows">
-            <button type="button" role="tab" aria-selected={tab === "browser"} className={tab === "browser" ? "on" : ""} onClick={() => onTab("browser")} title="Jev's own browser — live; click and type in it">
-              Jev's browser
+            <button type="button" role="tab" aria-selected={tab === "browser"} className={tab === "browser" ? "on" : ""} onClick={() => onTab("browser")} title="Jarvis's own browser — live; click and type in it">
+              Jarvis's browser
             </button>
-            <button type="button" role="tab" aria-selected={showScreen} className={showScreen ? "on" : ""} onClick={() => onTab("screen")} title="The app Jev is working in, or the one in front of you — click and type in it">
+            <button type="button" role="tab" aria-selected={showScreen} className={showScreen ? "on" : ""} onClick={() => onTab("screen")} title="The app Jarvis is working in, or the one in front of you — click and type in it">
               Your screen
             </button>
             {cofounder && (
@@ -154,7 +157,7 @@ export function LiveView({ page, jevChrome = null, status, connected, send, fixe
             <span id="page-url" className="url">{page.url}</span>
           </>
         )}
-        <div className="zoom" role="group" aria-label="Zoom">
+        {!showBrowser && <div className="zoom" role="group" aria-label="Zoom">
           <button type="button" title="Smaller" onClick={() => setZoom(stepZoom(zoom, -1))}>
             −
           </button>
@@ -164,7 +167,7 @@ export function LiveView({ page, jevChrome = null, status, connected, send, fixe
           <button type="button" title="Bigger" onClick={() => setZoom(stepZoom(zoom, 1))}>
             +
           </button>
-        </div>
+        </div>}
       </div>
       <div
         className={`screen${fixedViewport && !sized ? " scaled" : ""}${zoomed ? " zoomed" : ""}${typing ? " typing" : ""}`}
@@ -179,19 +182,19 @@ export function LiveView({ page, jevChrome = null, status, connected, send, fixe
         }}
       >
         {showBrowser ? (
-          <BrowserView url={browserView!} zoom={zoomed ? (zoom as number) : 1} />
+          <CloudBrowser transport={transport} visible={onScreen} running={cloudRunning} />
         ) : showCofounder ? (
           "computer" in cofounder! ? <CofounderView view={cofounderView} frame={cofounderFrame} send={send} zoom={zoom} /> : <div className="overlay">The co-founder's computer isn't connected yet. {cofounder!.off}.</div>
         ) : page.frame ? (
-          <img ref={imgRef} id="screen" src={page.frame} alt="Live view of the window Jev is showing — click and type here" draggable={false} onClick={onClick} style={imgStyle} />
+          <img ref={imgRef} id="screen" src={page.frame} alt="Live view of the window Jarvis is showing — click and type here" draggable={false} onClick={onClick} style={imgStyle} />
         ) : (
           <div className="overlay">{fresh.text === "Waiting for a picture" ? "Waiting for the screen…" : fresh.text}</div>
         )}
         {typing && <div className="typing-hint">Typing goes to {page.title || "this window"} · Esc key is sent too · click outside to stop</div>}
       </div>
       {jevChrome && (
-        <div className="jev-chrome-strip" title="Jev works in its own minimized Chrome window — same logins, never on your screen">
-          Jev is working in its own Chrome · {jevChrome.action}
+        <div className="jev-chrome-strip" title="Jarvis works in its own minimized Chrome window — same logins, never on your screen">
+          Jarvis is working in its own Chrome · {jevChrome.action}
           {jevChrome.url ? ` · ${jevChrome.url}` : ""}
         </div>
       )}

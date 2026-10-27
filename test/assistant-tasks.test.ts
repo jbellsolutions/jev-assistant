@@ -23,6 +23,14 @@ function held() {
 afterEach(async () => { for (const q of queues.splice(0)) await q.close(); for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true }); });
 
 describe("saved task execution", () => {
+  it("leaves previously queued, undispatched work paused for review when startup recovery requests it", async () => {
+    const w = held(); const { q, dir } = queue(w.worker);
+    q.submit("Active before restart", "local"); const pending = q.submit("Old undelivered request", "cloud");
+    await q.close(); queues.splice(queues.indexOf(q), 1);
+    const fresh = held(); const next = new TaskQueue({ dir, workers: { local: fresh.worker, cloud: fresh.worker, orgo: fresh.worker }, pauseQueuedAtStartup: true }); queues.push(next);
+    next.start(); expect(next.get(pending.id).status).toBe("paused"); expect(fresh.starts).toEqual([]);
+    await next.control(pending.id, "resume"); expect(fresh.starts).toEqual([pending.id]);
+  });
   it("serializes local and cloud work through one queue", async () => {
     const w = held(); const { q } = queue(w.worker, w.worker);
     const a = q.submit("First", "local"); const b = q.submit("Second", "cloud");

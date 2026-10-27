@@ -1,4 +1,4 @@
-/** The Jev desktop face: a floating always-on-top panel over the same companion the CLI runs,
+/** The Jarvis desktop face: a floating always-on-top panel over the same companion the CLI runs,
  *  in-process. ⌥Space shows and focuses the panel; the tray shows what it is doing. */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,6 +34,9 @@ import { trayIconPng } from "./tray-icon.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url)); // dist/app
 const root = path.join(here, "..", "..");
+// Preserve existing chat, layout and permissions when the product name changes.
+if (app.isPackaged && !process.argv.some((a) => a.startsWith("--user-data-dir="))) app.setPath("userData", path.join(app.getPath("appData"), "Jev"));
+app.setName("Jarvis");
 loadConfiguration(root);
 // The app is launched from the Dock / at login with no shell around it: read the project's .env itself.
 const envKeys = loadEnvFile(path.join(root, ".env"));
@@ -103,7 +106,7 @@ let setPaused: (paused: boolean) => void = () => {};
 function refreshTray() {
   if (quitting || !tray || tray.isDestroyed()) return;
   tray?.setImage(icon(panel.paused ? "paused" : panel.busy ? "busy" : "idle"));
-  tray?.setToolTip(panel.paused ? "Jev — paused (⌥Space or the menu to resume)" : panel.busy ? "Jev — working (Esc to stop)" : `Jev — ${HOTKEY.replace("Alt", "⌥").replace("+", "")} to show`);
+  tray?.setToolTip(panel.paused ? "Jarvis — paused (⌥Space or the menu to resume)" : panel.busy ? "Jarvis — working (Esc to stop)" : `Jarvis — ${HOTKEY.replace("Alt", "⌥").replace("+", "")} to show`);
   tray?.setContextMenu(buildTrayMenu());
 }
 
@@ -224,7 +227,7 @@ async function main() {
   console.log(describeStt(stt));
   const voice = createVoice(process.env, undefined, new MuteSwitch(readState().muted === true));
   console.log(voice.description);
-  // Jev's voice follows the Mac's output setting; name it, so "silent headset" is diagnosable.
+  // Jarvis's voice follows the Mac's output setting; name it, so "silent headset" is diagnosable.
   const outputDevice = deviceReader(path.join(root, "native", "jev-audio-out", "jev-audio-out"));
   void outputDevice().then((d) => console.log(`voice device: ${d ?? "unknown (jev-audio-out not built)"}`));
   const computer = selectComputer();
@@ -269,10 +272,11 @@ async function main() {
   const port = await companion.listen(PORT);
   baseUrl = `http://127.0.0.1:${port}`;
   void assistant.recoverVoice().catch(() => {});
+  void assistant.recoverCloud().catch(() => {});
   const voiceProcess = startVoiceProcess(root, baseUrl, assistant);
   app.on("before-quit", () => voiceProcess.stop());
   assistant.queue.start();
-  // The co-founder's way in to Jev: Tailscale only, its own token, Jev's own approvals.
+  // The co-founder's way in to Jarvis: Tailscale only, its own token, Jarvis's own approvals.
   const cofounderAccess = await startCofounderAccess({
     env: process.env,
     session: () => (companion.hub.defaultId ? (companion.hub.get(companion.hub.defaultId) ?? null) : null),
@@ -312,7 +316,7 @@ async function main() {
   });
   buildTrayMenu = () =>
     Menu.buildFromTemplate([
-      { label: `Show Jev (${HOTKEY})`, click: () => runHotkey() },
+      { label: `Show Jarvis (${HOTKEY})`, click: () => runHotkey() },
       ...(talkStatus === "off"
         ? []
         : [
@@ -327,14 +331,14 @@ async function main() {
               click: () => void shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"),
             },
           ]),
-      { label: panel.paused ? "Resume Jev" : "Pause Jev (off: hears, says and does nothing)", click: () => setPaused(!panel.paused) },
+      { label: panel.paused ? "Resume Jarvis" : "Pause Jarvis (off: hears, says and does nothing)", click: () => setPaused(!panel.paused) },
       { type: "separator" },
-      { label: `Jev: ${decider.enabled ? decider.model : "heuristics"}`, enabled: false },
+      { label: `Jarvis: ${decider.enabled ? decider.model : "heuristics"}`, enabled: false },
       { type: "separator" },
       ...(app.isPackaged
         ? [
             {
-              label: "Open Jev at Login",
+              label: "Open Jarvis at Login",
               type: "checkbox" as const,
               checked: app.getLoginItemSettings().openAtLogin,
               click: () => app.setLoginItemSettings({ openAtLogin: !app.getLoginItemSettings().openAtLogin }),
@@ -342,7 +346,7 @@ async function main() {
             { type: "separator" as const },
           ]
         : []),
-      { label: "Quit Jev", click: () => app.quit() },
+      { label: "Quit Jarvis", click: () => app.quit() },
     ]);
   tray.on("click", () => {
     const current = win;
@@ -362,7 +366,7 @@ async function main() {
   ipcMain.on("jev:hide", () => runEscape());
   ipcMain.handle("jev:is-visible", () => !!win && !win.isDestroyed() && win.isVisible() && !win.isMinimized());
   const ownSettings = (event: Electron.IpcMainInvokeEvent) => {
-    if (!win || event.sender !== win.webContents || event.senderFrame?.url !== `${baseUrl}/?mode=desktop`) throw new Error("Settings are available only in the Jev desktop panel");
+    if (!win || event.sender !== win.webContents || event.senderFrame?.url !== `${baseUrl}/?mode=desktop`) throw new Error("Settings are available only in the Jarvis desktop panel");
   };
   ipcMain.handle("jev:connections:get", (event) => { ownSettings(event); return connectionSettings(process.env.JEV_HOME!); });
   ipcMain.handle("jev:window:expanded", (event) => { ownSettings(event); return (win?.getBounds().width ?? 0) >= 900; });
@@ -418,7 +422,7 @@ async function main() {
     console.error(`Could not register the ${HOTKEY} hotkey; use the tray menu.`);
   }
   showPanel();
-  console.log(`Jev desktop → ${baseUrl}  hotkey ${HOTKEY}${envKeys.length ? `  (.env: ${envKeys.length} keys)` : ""}`);
+  console.log(`Jarvis desktop → ${baseUrl}  hotkey ${HOTKEY}${envKeys.length ? `  (.env: ${envKeys.length} keys)` : ""}`);
 
   let shutdownStarted = false;
   app.on("before-quit", (event) => {

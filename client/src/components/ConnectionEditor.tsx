@@ -21,7 +21,7 @@ export function ConnectionEditor({ onClose }: { onClose(): void }) {
     try {
       const next = await window.jev!.saveConnections!({ values, remove });
       setSettings(next); setValues(Object.fromEntries(Object.entries(next).filter(([, v]) => v.value !== undefined).map(([k, v]) => [k, v.value]))); setRemove([]); setSaved(true);
-      setMessage("Saved privately. Restart Jev to apply your changes.");
+      setMessage("Saved privately. Restart Jarvis to apply your changes.");
     } catch (e) { setMessage(e instanceof Error ? e.message : "Could not save settings."); }
     finally { setBusy(false); }
   };
@@ -37,7 +37,7 @@ export function ConnectionEditor({ onClose }: { onClose(): void }) {
         </div>)}
       </fieldset>)}</div>
       <p className="settings-message" role="status">{message}</p>
-      <div className="settings-actions"><button type="submit" disabled={busy}>{busy ? "Please wait…" : "Save connections"}</button>{saved && <button type="button" onClick={() => void window.jev?.restart?.().catch((e: Error) => setMessage(e.message))}>Restart Jev</button>}</div>
+      <div className="settings-actions"><button type="submit" disabled={busy}>{busy ? "Please wait…" : "Save connections"}</button>{saved && <button type="button" onClick={() => void window.jev?.restart?.().catch((e: Error) => setMessage(e.message))}>Restart Jarvis</button>}</div>
     </form>
   </section></div>;
 }

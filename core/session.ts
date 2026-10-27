@@ -472,13 +472,14 @@ export class Session {
     await this.userInput(() => this.executor.inputKey!(key));
   }
 
-  private async userInput(run: () => Promise<string>): Promise<void> {
-    try {
-      await run();
-    } catch (err) {
-      this.emit({ type: "status", text: err instanceof Error ? err.message : String(err), level: "warn" });
-    }
-    await this.deps.afterAction?.();
+  private manualInput: Promise<void> = Promise.resolve();
+  private userInput(run: () => Promise<string>): Promise<void> {
+    // Keep a typed batch before its Enter key, independent of the agent's task queue.
+    const next = this.manualInput.then(async () => {
+      try { await run(); await this.deps.afterAction?.(); }
+      catch (err) { this.emit({ type: "status", text: err instanceof Error ? err.message : String(err), level: "warn" }); }
+    });
+    this.manualInput = next; return next;
   }
 
   clickAt(fx: number, fy: number): Promise<void> {

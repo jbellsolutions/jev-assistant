@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+# Preserve the previous branded bundle while keeping Applications unambiguous.
+volume="${3:-/}"
+prefix="${volume%/}"
+old="$prefix/Applications/Jev.app"
+new="$prefix/Applications/Jarvis.app"
+if [ -d "$new" ] && [ -d "$old" ]; then
+  identity=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$old/Contents/Info.plist" 2>/dev/null || true)
+  if [ "$identity" = 'com.jev.app' ]; then
+    backup="$prefix/Library/Application Support/Jarvis/Previous Versions"
+    mkdir -p "$backup"
+    mv "$old" "$backup/Jev-$(date +%Y%m%d%H%M%S)-$$.app"
+  fi
+fi
+exit 0

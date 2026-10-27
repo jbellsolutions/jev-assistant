@@ -2,11 +2,17 @@ import { Composio } from "@composio/core";
 export const SUPPORTED_APPS = ["slack", "gmail", "clickup"] as const;
 export function appConnections(env: NodeJS.ProcessEnv) {
   const client = () => {
-    if (!env.COMPOSIO_API_KEY?.trim()) throw new Error("Add a Composio project key in Your connections, then restart Jev.");
+    if (!env.COMPOSIO_API_KEY?.trim()) throw new Error("Add a Composio project key in Your connections, then restart Jarvis.");
     return new Composio({ apiKey: env.COMPOSIO_API_KEY });
   };
   const userId = env.COMPOSIO_USER_ID?.trim() || "default";
   return {
+    async selectedAccounts() {
+      const r = await client().connectedAccounts.list({ userIds: [userId], statuses: ["ACTIVE"] }, { signal: AbortSignal.timeout(15000) });
+      const selected = new Map<string, string>();
+      for (const slug of SUPPORTED_APPS) { const matches = r.items.filter((a) => a.toolkit.slug.toLowerCase() === slug); if (matches.length === 1) selected.set(slug, matches[0]!.id); }
+      return selected;
+    },
     async list() {
       const c = client();
       try {

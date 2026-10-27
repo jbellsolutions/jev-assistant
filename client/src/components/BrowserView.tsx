@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
-/** How often to check that Jev's browser is still there (browser-box can be stopped under us). */
+/** How often to check that Jarvis's browser is still there (browser-box can be stopped under us). */
 const PROBE_MS = 10_000;
 
-/** Jev's own browser, live and clickable: browser-box's session player in a frame. It is the same
+/** Jarvis's own browser, live and clickable: browser-box's session player in a frame. It is the same
  *  browser the brain's browser_box tool drives, so the user watches it work — and can click, type or
- *  sign in himself, once, for a site Jev should reuse. */
+ *  sign in himself, once, for a site Jarvis should reuse. */
 /** `zoom` shrinks or enlarges the whole player: the frame is laid out 1/zoom as big and scaled back,
  *  so the page inside still fills the box and stays clickable. */
 export function BrowserView({ url, zoom = 1 }: { url: string; zoom?: number }) {
@@ -34,7 +34,7 @@ export function BrowserView({ url, zoom = 1 }: { url: string; zoom?: number }) {
     };
   }, [url]);
 
-  if (up === false) return <div className="overlay">Jev's browser isn't running (browser-box is down).</div>;
+  if (up === false) return <div className="overlay">Jarvis's browser isn't running (browser-box is down).</div>;
   const style = zoom === 1 ? undefined : { width: `${100 / zoom}%`, height: `${100 / zoom}%`, transform: `scale(${zoom})`, transformOrigin: "0 0" };
-  return <iframe key={epoch} className="browser-view" src={url} title="Jev's browser — live" allow="clipboard-read; clipboard-write" style={style} />;
+  return <iframe key={epoch} className="browser-view" src={url} title="Jarvis's browser — live" allow="clipboard-read; clipboard-write" style={style} />;
 }

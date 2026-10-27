@@ -1,6 +1,6 @@
 /** Shared desktop/voice/task contract. No credentials or provider SDKs cross this seam. */
 export type WorkTarget = "local" | "cloud" | "orgo";
-export const WORK_TARGET_LABELS: Record<WorkTarget, string> = { local: "My computer", cloud: "Cloud browser", orgo: "Co-founder's computer" };
+export const WORK_TARGET_LABELS: Record<WorkTarget, string> = { local: "My computer", cloud: "Jarvis browser", orgo: "Co-founder's computer" };
 export type WorkStatus = "queued" | "running" | "waiting_for_user" | "paused" | "completed" | "failed" | "cancelled";
 export interface WorkTask {
   id: string;

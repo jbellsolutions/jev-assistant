@@ -28,7 +28,7 @@ export function MicButton({
   paused?: boolean;
   listen?: ListenSettings;
   onMode?: (mode: SttMode) => void;
-  /** Called just before the microphone opens, to stop Jev talking over the answer being given. */
+  /** Called just before the microphone opens, to stop Jarvis talking over the answer being given. */
   onOpen?: () => void;
   /** The talk key (desktop): subscribes to start / stop / abort. */
   onTalk?: (cb: (cmd: "start" | "stop" | "abort") => void) => () => void;
@@ -36,7 +36,7 @@ export function MicButton({
   const wake = listen.mode === "wake" && listen.wakeAvailable;
   const speech = useStreamingTranscription({ transport, onUtterance, ...(wake ? { mode: "wake" as const } : {}) });
   // The talk key is push-to-talk in both modes. In wake mode the standing stream is fixed to
-  // listening for "Hey Jev", so the key gets its own short push stream (billed only while held).
+  // listening for "Hey Jarvis", so the key gets its own short push stream (billed only while held).
   const keyed = useStreamingTranscription({ transport, onUtterance });
   const talk = wake ? keyed : speech;
   const talkRef = useRef(talk);
@@ -93,18 +93,18 @@ export function MicButton({
       : speech.availability === "insecure"
         ? "Voice needs HTTPS or localhost"
         : paused
-          ? "Paused — resume to talk to Jev"
+          ? "Paused — resume to talk to Jarvis"
           : wake && keyed.listening
             ? "Listening — let go of the talk key to send"
             : wake
             ? speech.woken
               ? "Yes? — go ahead"
               : speech.listening
-                ? 'Standing by — say "Hey Jev"'
+                ? 'Standing by — say "Hey Jarvis"'
                 : "Opening the microphone…"
             : speech.listening
               ? "Listening — tap to stop"
-              : "Tap to talk to Jev";
+              : "Tap to talk to Jarvis";
   const note = NOTES[speech.availability] ?? speech.error;
 
   return (
@@ -115,7 +115,7 @@ export function MicButton({
           type="button"
           className={`mic${wake ? " mic-wake" : ""}${speech.woken ? " mic-woken" : ""}`}
           aria-pressed={speech.listening}
-          title={wake ? (speech.listening ? "Listening for “Hey Jev”" : "Starting") : speech.listening ? "Stop listening" : "Start listening"}
+          title={wake ? (speech.listening ? "Listening for “Hey Jarvis”" : "Starting") : speech.listening ? "Stop listening" : "Start listening"}
           disabled={disabled || wake}
           onClick={() => {
             if (!speech.listening) onOpen?.();
@@ -131,10 +131,10 @@ export function MicButton({
           <div className="interim">{(wake && keyed.listening ? keyed.interim : speech.interim) || " "}</div>
         </div>
         {onMode && listen.wakeAvailable && (
-          <div className="listen-switch" role="group" aria-label="How Jev listens">
+          <div className="listen-switch" role="group" aria-label="How Jarvis listens">
             {(["push", "wake"] as const).map((m) => (
-              <button key={m} type="button" className={listen.mode === m ? "on" : ""} aria-pressed={listen.mode === m} onClick={() => onMode(m)} title={m === "push" ? "Press the mic to talk" : 'Leave the microphone open and say "Hey Jev"'}>
-                {m === "push" ? "Button" : "Hey Jev"}
+              <button key={m} type="button" className={listen.mode === m ? "on" : ""} aria-pressed={listen.mode === m} onClick={() => onMode(m)} title={m === "push" ? "Press the mic to talk" : 'Leave the microphone open and say "Hey Jarvis"'}>
+                {m === "push" ? "Button" : "Hey Jarvis"}
               </button>
             ))}
           </div>

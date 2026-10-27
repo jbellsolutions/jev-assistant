@@ -1,6 +1,6 @@
 /** Service worker: keeps a socket to the companion, tracks the active tab, and carries out
  *  requests on it — navigation itself, everything in the page through the content script. Requests
- *  marked `tab: "jev"` run in Jev's own minimized window instead, so the brain can use the user's
+ *  marked `tab: "jev"` run in Jarvis's own minimized window instead, so the brain can use the user's
  *  logins without touching what he is looking at.
  *  MV3 workers are put to sleep when idle; socket traffic every 20 s and an alarm keep the
  *  bridge alive and reconnecting. */
@@ -39,7 +39,7 @@ async function activeTab(): Promise<chrome.tabs.Tab | null> {
   return any ?? null;
 }
 
-/** Jev's own window: minimized, never focused, same profile — so every site the user is signed into
+/** Jarvis's own window: minimized, never focused, same profile — so every site the user is signed into
  *  works there, and nothing he is looking at changes. Remembered for the browser session; made
  *  again if he closes it. */
 async function jevTab(): Promise<chrome.tabs.Tab> {
@@ -61,11 +61,11 @@ async function jevTab(): Promise<chrome.tabs.Tab> {
   if (win?.id !== undefined && win.state !== "minimized") await chrome.windows.update(win.id, { state: "minimized" }).catch(() => {});
   await chrome.storage.session.set({ jevWindowId: win?.id });
   const tab = win?.tabs?.[0];
-  if (!tab) throw new Error("Couldn't open Jev's background window in Chrome");
+  if (!tab) throw new Error("Couldn't open Jarvis's background window in Chrome");
   return tab;
 }
 
-/** The tab an op is for: Jev's own (background) or the one the user is looking at. */
+/** The tab an op is for: Jarvis's own (background) or the one the user is looking at. */
 async function targetTab(target: TabTarget | undefined): Promise<chrome.tabs.Tab | null> {
   return target === "jev" ? jevTab() : activeTab();
 }
@@ -216,16 +216,16 @@ async function connect(): Promise<void> {
 
 async function openBridge(): Promise<void> {
   const { url, token } = await settings();
-  // Ask over plain HTTP first. A WebSocket to a Jev that isn't running (or that refuses the
+  // Ask over plain HTTP first. A WebSocket to a Jarvis that isn't running (or that refuses the
   // token) is logged by Chrome as an error on chrome://extensions every retry; a caught fetch
   // and a 200 are not.
   const ready = await bridgeReady(url, token);
   if (ready !== "ok") {
     void chrome.action.setBadgeText({ text: ready === "wrong" || ready === "unset" ? "key" : "" });
-    void chrome.action.setTitle({ title: ready === "down" ? "Jev bridge — waiting for Jev to start" : "Jev bridge — Jev refused the token: reload the extension from jev/dist/extension" });
+    void chrome.action.setTitle({ title: ready === "down" ? "Jarvis bridge — waiting for Jarvis to start" : "Jarvis bridge — Jarvis refused the token: reload the extension from jev/dist/extension" });
     return scheduleReconnect();
   }
-  void chrome.action.setTitle({ title: "Jev bridge — connected" });
+  void chrome.action.setTitle({ title: "Jarvis bridge — connected" });
   const target = new URL(url);
   if (token) target.searchParams.set("token", token);
   let ws: WebSocket;
@@ -254,13 +254,13 @@ async function openBridge(): Promise<void> {
     if (pingTimer) clearInterval(pingTimer);
     pingTimer = null;
     void chrome.action.setBadgeText({ text: "" });
-    void chrome.action.setTitle({ title: "Jev bridge — reconnecting to Jev" });
+    void chrome.action.setTitle({ title: "Jarvis bridge — reconnecting to Jarvis" });
     scheduleReconnect();
   };
   ws.onerror = () => ws.close();
 }
 
-/** "down" when nothing answers; otherwise what Jev thinks of the token. */
+/** "down" when nothing answers; otherwise what Jarvis thinks of the token. */
 async function bridgeReady(url: string, token: string): Promise<"ok" | "wrong" | "unset" | "down"> {
   try {
     const probe = new URL(url);
@@ -268,7 +268,7 @@ async function bridgeReady(url: string, token: string): Promise<"ok" | "wrong" |
     probe.pathname = "/api/bridge-ready";
     probe.search = "";
     const res = await fetch(probe, { headers: token ? { authorization: `Bearer ${token}` } : {}, cache: "no-store", signal: AbortSignal.timeout(2500) });
-    if (!res.ok) return "ok"; // an older Jev without this route: let the socket try, as before
+    if (!res.ok) return "ok"; // an older Jarvis without this route: let the socket try, as before
     const body = (await res.json()) as { token?: string };
     return body.token === "ok" || body.token === "wrong" || body.token === "unset" ? body.token : "down";
   } catch {
@@ -291,11 +291,11 @@ chrome.windows.onFocusChanged.addListener(() => void announceTab());
 chrome.tabs.onUpdated.addListener((_id, change, tab) => {
   if (!((change.status === "complete" || change.url || change.title) && tab.active)) return;
   void chrome.storage.session.get("jevWindowId").then(({ jevWindowId }) => {
-    if (tab.windowId !== jevWindowId) void announceTab(); // Jev's own window is not where the user is
+    if (tab.windowId !== jevWindowId) void announceTab(); // Jarvis's own window is not where the user is
   });
 });
 chrome.storage.onChanged.addListener((_changes, area) => {
-  // only the pairing settings (local) mean "reconnect"; Jev's window id lives in session storage
+  // only the pairing settings (local) mean "reconnect"; Jarvis's window id lives in session storage
   if (area !== "local") return;
   if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }

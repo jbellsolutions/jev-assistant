@@ -44,6 +44,7 @@ export const toolkitOf = (slug: string) => slug.split("_")[0]!.toLowerCase();
 
 export interface AppsLoad {
   tools: ToolSet;
+  accounts?: Record<string, string>;
   /** One line for the startup log and the brain's health: what loaded, and what is not connected. */
   note: string;
 }
@@ -84,7 +85,7 @@ export function gateApps(tools: ToolSet, ctx: ToolContext): ToolSet {
         if (dup) return dup;
         const fingerprint = `${slug}:${JSON.stringify(args, (_key, value) => value && typeof value === "object" && !Array.isArray(value) ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value)}`;
         if (attempts.has(fingerprint)) return `This app action was already attempted (${attempts.get(fingerprint)}). Reconcile its result before any repeat; do not send it another way.`;
-        if (!(await ctx.ask(`${what}${detail(args ?? {})}`))) return "the user said no. Do not do this another way; stop and tell him.";
+        if (!ctx.appWriteAllowed?.(slug) && !(await ctx.ask(`${what}${detail(args ?? {})}`))) return "the user said no. Do not do this another way; stop and tell him.";
         if (ctx.signal.aborted) return "Stopped.";
         attempts.set(fingerprint, "unconfirmed");
         let done: unknown;
@@ -133,7 +134,7 @@ export function createComposioApps(env: NodeJS.ProcessEnv = process.env): AppsLo
       }
       const apps = [...new Set(Object.keys(tools).map(toolkitOf))];
       const note = `${Object.keys(tools).length} app actions${apps.length ? ` (${apps.join(", ")})` : ""}${missing.length ? `; needs one selected connected account: ${missing.join(", ")} — check Connection settings` : ""}`;
-      return { tools, note };
+      return { tools, note, accounts: Object.fromEntries(single) };
     },
   };
 }

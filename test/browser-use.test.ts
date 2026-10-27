@@ -2,12 +2,78 @@ import { describe, expect, it } from "vitest";
 import { BrowserUseWorker } from "../server/assistant/browser-use.js";
 import type { WorkContext } from "../server/assistant/tasks.js";
 import type { WorkTask } from "../core/assistant.js";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 const task = (over: Partial<WorkTask> = {}): WorkTask => ({ id: "task", goal: "Compare pricing", target: "cloud", status: "queued", createdAt: 1, updatedAt: 1, revision: 1, progress: "", output: "", history: [], ...over });
 function context() { const patches: Partial<WorkTask>[] = []; return { patches, ctx: { signal: new AbortController().signal, update: (p: Partial<WorkTask>) => patches.push(p), event() {} } satisfies WorkContext }; }
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json" } });
 
 describe("Browser Use V4 worker", () => {
+  it("finds its viewer from the acknowledged session when no browser-ready event is available", async () => {
+    const stopped: string[] = [];
+    const w = new BrowserUseWorker({ key: "key", retainBrowser: true, fetch: async (url, init) => {
+      const u = new URL(String(url)), p = u.pathname;
+      if (p.endsWith("/runs")) return json({ id: "run", sessionId: "acknowledged-session", status: "running" });
+      if (p.endsWith("/status")) return json({ status: "completed" });
+      if (p.endsWith("/events")) return json({ events: [] });
+      if (p.endsWith("/browsers")) { expect(u.searchParams.get("agentSessionId")).toBe("acknowledged-session"); return json({ items: [{ id: "foreign", agentSessionId: "another-session", status: "active", liveUrl: "https://view.example/foreign" }, { id: "owned", agentSessionId: "acknowledged-session", status: "active", liveUrl: "https://view.example/owned" }] }); }
+      if (p.includes("/browsers/")) { stopped.push(p); return json({}); }
+      return json({ status: "completed", result: "Done" });
+    } });
+    await w.run(task(), context().ctx); expect(w.browserView().url).toBe("https://view.example/owned");
+    await w.closeBrowser(); expect(stopped).toEqual(["/api/v4/browsers/owned"]);
+  });
+  it("keeps the interactive browser for follow-up tasks, reuses its session and explicitly stops it", async () => {
+    const calls: Array<{ path: string; body?: Record<string, unknown> }> = []; let runs = 0;
+    const w = new BrowserUseWorker({ key: "key", retainBrowser: true, fetch: async (url, init) => {
+      const p = new URL(String(url)).pathname; const body = init?.body ? JSON.parse(String(init.body)) : undefined; calls.push({ path: p, body });
+      if (p.endsWith("/runs")) return json({ id: `run-${++runs}`, sessionId: "shared-session", status: "running" });
+      if (p.endsWith("/status")) return json({ status: "completed" });
+      if (p.endsWith("/events")) return json({ events: [{ id: 1, type: "browser.ready", data: { browser_session_id: "owned", live_view_url: "https://view.example/private" } }] });
+      return json({ status: "completed", result: "Done" });
+    } });
+    await w.run(task(), context().ctx); expect(w.browserView().url).toBe("https://view.example/private");
+    expect(calls.filter((c) => c.body?.action === "stop")).toHaveLength(0);
+    await w.run(task({ id: "followup" }), context().ctx);
+    expect(calls.filter((c) => c.path.endsWith("/runs")).map((c) => c.body)).toEqual([expect.objectContaining({ keepAlive: 900 }), expect.objectContaining({ sessionId: "shared-session", keepAlive: 900 })]);
+    await w.closeBrowser(); expect(w.browserView().url).toBeNull();
+    expect(calls.filter((c) => c.body?.action === "stop")).toHaveLength(1);
+  });
+  it("never keeps a failed cloud run's browser alive", async () => {
+    let stopped = false;
+    const w = new BrowserUseWorker({ key: "key", retainBrowser: true, fetch: async (url, init) => {
+      const p = new URL(String(url)).pathname;
+      if (p.endsWith("/runs")) return json({ id: "run", sessionId: "session", status: "running" });
+      if (p.endsWith("/status")) return json({ status: "failed" });
+      if (p.endsWith("/events")) return json({ events: [{ id: 1, type: "browser.ready", data: { browserId: "owned", liveUrl: "https://view.example/private" } }] });
+      if (p.includes("/browsers/")) { stopped = true; return json({}); }
+      return json({ status: "failed", error: "Stopped by provider" });
+    } });
+    await expect(w.run(task(), context().ctx)).rejects.toThrow("Stopped by provider");
+    expect(stopped).toBe(true); expect(w.browserView().url).toBeNull();
+  });
+  it("recovers only its journaled browsers after a process crash, retaining a resumable active run", async () => {
+    const home = mkdtempSync(path.join(tmpdir(), "jarvis-cloud-")); const browserId = "00000000-0000-4000-8000-000000000000";
+    const stopped: string[] = [];
+    const fetcher: typeof fetch = async (url, init) => {
+      const p = new URL(String(url)).pathname;
+      if (p.endsWith("/runs")) return json({ id: "run", sessionId: "session", status: "running" });
+      if (p.endsWith("/status")) return json({ status: "completed" });
+      if (p.endsWith("/events")) return json({ events: [{ id: 1, type: "browser.ready", data: { browser_session_id: browserId, live_view_url: "https://view.example/private" } }] });
+      if (p.includes("/browsers/")) { if (init?.method === "PATCH") stopped.push(p); return json({ status: "active", liveUrl: "https://view.example/private" }); }
+      return json({ status: "completed", result: "Done" });
+    };
+    try {
+      await new BrowserUseWorker({ key: "key", retainBrowser: true, home, fetch: fetcher }).run(task(), context().ctx);
+      expect(JSON.parse(readFileSync(path.join(home, "cloud-browsers.json"), "utf8"))).toEqual([browserId]);
+      expect(statSync(path.join(home, "cloud-browsers.json")).mode & 0o777).toBe(0o600);
+      const active = new BrowserUseWorker({ key: "key", retainBrowser: true, home, fetch: fetcher }); await active.recover([browserId]); expect(stopped).toEqual([]);
+      const restarted = new BrowserUseWorker({ key: "key", retainBrowser: true, home, fetch: fetcher }); await restarted.recover();
+      expect(stopped).toEqual([`/api/v4/browsers/${browserId}`]); expect(JSON.parse(readFileSync(path.join(home, "cloud-browsers.json"), "utf8"))).toEqual([]);
+    } finally { rmSync(home, { recursive: true, force: true }); }
+  });
   it("pins Luna, persists the dispatch receipt, drains terminal events and releases the owned browser", async () => {
     const calls: Array<{ path: string; init?: RequestInit }> = [];
     const fetcher: typeof fetch = async (url, init) => {

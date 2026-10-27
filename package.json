@@ -1,9 +1,9 @@
 {
   "name": "jev-assistant",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Jev desktop companion: live voice, saved tasks, local Chrome and Mac control.",
+  "description": "Jarvis desktop companion: live voice, saved tasks, local Chrome and Mac control.",
   "engines": {
     "node": ">=22"
   },
@@ -84,7 +84,7 @@
   "main": "dist/app/main.mjs",
   "build": {
     "appId": "com.jev.app",
-    "productName": "Jev",
+    "productName": "Jarvis",
     "asar": false,
     "directories": {
       "output": "dist-electron"
@@ -104,8 +104,8 @@
       "category": "public.app-category.productivity",
       "icon": "build/icon.png",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Jev uses the microphone during the live conversation you start. End conversation stops it.",
-        "NSAppleEventsUsageDescription": "Jev uses Apple Events to change this Mac's volume, appearance and playback when you ask it to."
+        "NSMicrophoneUsageDescription": "Jarvis uses the microphone during the live conversation you start. End conversation stops it.",
+        "NSAppleEventsUsageDescription": "Jarvis uses Apple Events to change this Mac's volume, appearance and playback when you ask it to."
       },
       "hardenedRuntime": true
     },

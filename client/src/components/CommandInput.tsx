@@ -78,7 +78,7 @@ export function CommandInput({ onSubmit, chips = [], onAttach, onRemove }: { onS
               send();
             }
           }}
-          placeholder="Type to Jev — Shift+Enter for a new line, 📎 or drop a file to attach a charter or plan"
+          placeholder="Type to Jarvis — Shift+Enter for a new line, 📎 or drop a file to attach a charter or plan"
           aria-label="Type a message"
         />
         <button type="submit" disabled={!canSend}>

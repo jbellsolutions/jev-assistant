@@ -227,6 +227,14 @@ export class RemoteExecutor implements Executor {
     return status;
   }
 
+  inputClick(fx: number, fy: number): Promise<string> {
+    if (![fx, fy].every(Number.isFinite)) return Promise.reject(new Error("Choose a point inside the live picture"));
+    const x = Math.min(1, Math.max(0, fx)), y = Math.min(1, Math.max(0, fy));
+    return this.execute({ kind: "click_at", x: Math.round(x * this.viewport.width), y: Math.round(y * this.viewport.height), fx: x, fy: y });
+  }
+  inputText(text: string): Promise<string> { return this.execute({ kind: "type", elementId: null, label: null, text, submit: false, focused: true }); }
+  inputKey(key: string): Promise<string> { return this.execute({ kind: "press", key }); }
+
   async setViewport(): Promise<boolean> {
     return false; // the user's window is theirs
   }

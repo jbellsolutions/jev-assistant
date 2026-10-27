@@ -1,4 +1,4 @@
-# Building and releasing Jev
+# Building and releasing Jarvis
 
 ## Local preview build
 
@@ -14,7 +14,7 @@ npm run release:mac
 npm run smoke:package
 ```
 
-The release directory contains the standard Mac `.pkg`, a quick-start guide and SHA256SUMS.txt. The package installs Jev.app and the separately signed CuaDriver.app in Applications. Driver version 0.28.2 is fetched from the official vendor release with a pinned SHA-256 and its code signature verified. A component's newer installed version is not downgraded. Existing private settings/tasks live in the user's home directory.
+The release directory contains the standard Mac `.pkg`, a quick-start guide and SHA256SUMS.txt. The package installs Jarvis.app and the separately signed CuaDriver.app in Applications. Driver version 0.28.2 is fetched from the official vendor release with a pinned SHA-256 and its code signature verified. A component's newer installed version is not downgraded. Existing private settings/tasks live in the user's home directory. The postinstall migration preserves the former Jev.app outside Applications only when its bundle identity matches; it does not delete user data.
 
 The installer is built for Apple Silicon only. Do not relabel it as universal or Windows-compatible.
 

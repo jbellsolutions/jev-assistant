@@ -46,14 +46,14 @@ export function DecisionLog({ entries, onClear, onNewChat }: { entries: LogEntry
       <div className="log-head">
         <span>Transcript &amp; decisions</span>
         <span className="log-actions">
-          <button type="button" className="link" onClick={onNewChat} title="Close this conversation; Jev starts the next one from scratch">new chat</button>
-          <button type="button" className="link" onClick={onClear} title="Clear this list only; Jev still remembers the chat">clear</button>
+          <button type="button" className="link" onClick={onNewChat} title="Close this conversation; Jarvis starts the next one from scratch">new chat</button>
+          <button type="button" className="link" onClick={onClear} title="Clear this list only; Jarvis still remembers the chat">clear</button>
         </span>
       </div>
       <ol id="log" className="log" aria-live="polite">
         {entries.map((e, i) => (
           <Fragment key={e.id}>
-            {e.past && !entries[i - 1]?.past && <li className="log-divider" aria-label="Earlier, before Jev restarted">before Jev restarted</li>}
+            {e.past && !entries[i - 1]?.past && <li className="log-divider" aria-label="Earlier, before Jarvis restarted">before Jarvis restarted</li>}
             <Entry entry={e} />
             {e.newChat && <li className="log-divider new-chat" aria-label="A new chat started here">new chat</li>}
           </Fragment>

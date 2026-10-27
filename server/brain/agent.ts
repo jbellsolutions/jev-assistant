@@ -139,6 +139,7 @@ export interface AgentBrainOptions {
   generate?: typeof generateText;
   /** Connectors (Composio): a named list of app actions, loaded once, on first use. */
   apps?: AppsLoader | null;
+  appWriteAllowed?: (slug: string, account: string) => boolean;
   /** Enforce the selected execution environment before exposing tools to the model. */
   ownTools?: readonly string[];
   /** The ongoing chat; in memory only when not given. */
@@ -331,6 +332,10 @@ export class AgentBrain implements BrainWithHealth {
       ...(run.job ? { tab: run.job.tab ?? "background" } : {}),
     };
     const apps = await this.apps();
+    if (run.from !== "cofounder" && this.opts.appWriteAllowed) ctx.appWriteAllowed = (slug) => {
+      const account = apps.accounts?.[slug.split("_")[0]!.toLowerCase()];
+      return !!account && this.opts.appWriteAllowed!(slug, account);
+    };
     const own = buildTools(this.opts.hands, ctx);
     if (this.opts.ownTools) for (const name of Object.keys(own)) if (!this.opts.ownTools.includes(name)) delete own[name];
     // The co-founder can't hand work back to itself through Jev: no loops.

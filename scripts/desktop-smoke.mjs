@@ -10,7 +10,7 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const home = mkdtempSync(path.join(tmpdir(), "jev-desktop-smoke-"));
 const port = 3127;
 const token = randomBytes(32).toString("hex");
-const env = { ...process.env, JEV_HOME: home, JEV_APP_PORT: String(port), JEV_BRIDGE_PORT: String(port), JEV_TOKEN: token, JEV_MAC: "off", JEV_TALK_KEYS: "off", STT_PROVIDER: "off", JEV_TTS: "off", OPENAI_API_KEY: "", LIVEKIT_URL: "", LIVEKIT_API_KEY: "", LIVEKIT_API_SECRET: "", TYPESAFE_API_KEY: "", OPENROUTER_API_KEY: "", COMPOSIO_API_KEY: "", ORGO_API_KEY: "", BB_TOKEN: "" };
+const env = { ...process.env, JEV_HOME: home, JEV_APP_PORT: String(port), JEV_BRIDGE_PORT: String(port), JEV_TOKEN: token, JEV_MAC: "off", JEV_TALK_KEYS: "off", STT_PROVIDER: "off", JEV_TTS: "off", OPENAI_API_KEY: "", LIVEKIT_URL: "", LIVEKIT_API_KEY: "", LIVEKIT_API_SECRET: "", TYPESAFE_API_KEY: "", OPENROUTER_API_KEY: "", COMPOSIO_API_KEY: "", BROWSER_USE_API_KEY: "", ORGO_API_KEY: "", BB_TOKEN: "" };
 const headers = { authorization: `Bearer ${token}`, "Content-Type": "application/json" };
 const get = async (route) => (await fetch(`http://127.0.0.1:${port}${route}`, { headers })).json();
 const wait = async (fn) => { const end = Date.now() + 20000; while (!(await fn())) { if (Date.now() > end) throw new Error("Smoke condition timed out"); await new Promise((r) => setTimeout(r, 150)); } };
@@ -29,24 +29,24 @@ try {
   await page.getByRole("dialog", { name: "Your connections" }).waitFor();
   await page.locator("#connection-COMPOSIO_USER_ID").fill("smoke-user");
   await page.getByRole("button", { name: "Save connections", exact: true }).click();
-  await page.getByText("Saved privately. Restart Jev to apply your changes.", { exact: true }).waitFor();
+  await page.getByText("Saved privately. Restart Jarvis to apply your changes.", { exact: true }).waitFor();
   assert.equal((await page.locator("#connection-OPENAI_API_KEY").inputValue()), "");
   assert.match(readFileSync(path.join(home, ".env"), "utf8"), /COMPOSIO_USER_ID="smoke-user"/);
   await page.getByRole("button", { name: "Close connection settings", exact: true }).click();
   await page.getByText("Connection settings", { exact: true }).click();
   assert.equal(await page.getByRole("combobox", { name: "Work environment" }).inputValue(), "local");
-  await page.getByRole("button", { name: "Talk to Jev", exact: true }).click();
+  await page.getByRole("button", { name: "Talk to Jarvis", exact: true }).click();
   await page.getByText(/Add your OpenAI and LiveKit credentials/).waitFor();
   let releaseToken;
   let cancelledRoom = false;
   const delayedToken = new Promise((resolve) => { releaseToken = resolve; });
   await page.route("**/assistant/voice/token", async (route) => { await delayedToken; await route.fulfill({ json: { url: "wss://unused.invalid", token: "unused", room: "cancelled-test-call" } }); });
   await page.route("**/assistant/voice/end", async (route) => { cancelledRoom = route.request().postDataJSON().room === "cancelled-test-call"; await route.fulfill({ json: { ok: true } }); });
-  await page.getByRole("button", { name: "Talk to Jev", exact: true }).click();
+  await page.getByRole("button", { name: "Talk to Jarvis", exact: true }).click();
   await page.getByRole("button", { name: "Cancel connection", exact: true }).click();
   releaseToken();
   await wait(() => cancelledRoom);
-  await page.getByRole("button", { name: "Talk to Jev", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Talk to Jarvis", exact: true }).waitFor();
   await page.unroute("**/assistant/voice/token"); await page.unroute("**/assistant/voice/end");
   console.log("PASS: cancelling a pending voice connection releases its late room without opening a microphone.");
   await page.getByRole("textbox", { name: "Type a message" }).fill("Inspect a local task without connected accounts");
@@ -64,11 +64,59 @@ try {
   await page.getByText("Chrome connected", { exact: true }).waitFor();
   await page.getByRole("checkbox", { name: /Instant typed controls/ }).check();
   assert.equal(await page.getByRole("button", { name: "Start listening", exact: true }).count(), 0);
-  assert.equal(await page.getByText("Tap to talk to Jev", { exact: true }).count(), 0);
+  assert.equal(await page.getByText("Tap to talk to Jarvis", { exact: true }).count(), 0);
   await page.getByRole("textbox", { name: "Type a message" }).fill("click on pricing");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await wait(async () => tab.url().includes("page=pricing"));
   assert.equal(await tab.locator("h1").innerText(), "Pricing");
+  // Exercise the live picture itself, rather than only typed agent commands.
+  await tab.goto(`http://127.0.0.1:${port}/demo`);
+  await page.locator("#screen").waitFor();
+  const clickPicture = async (locator) => {
+    const link = await locator.boundingBox();
+    const image = await page.locator("#screen").evaluate((el) => ({ width: el.clientWidth, height: el.clientHeight, naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight }));
+    const scale = Math.min(image.width / image.naturalWidth, image.height / image.naturalHeight); const viewport = tab.viewportSize();
+    await page.locator("#screen").click({ position: { x: ((link.x + link.width / 2) / viewport.width) * image.naturalWidth * scale, y: ((link.y + link.height / 2) / viewport.height) * image.naturalHeight * scale } });
+  };
+  await clickPicture(tab.getByRole("link", { name: "Pricing", exact: true }));
+  await wait(async () => tab.url().includes("page=pricing"));
+  console.log("PASS: clicking the live screen picture controls the real isolated Chrome tab.");
+  await clickPicture(tab.getByRole("searchbox", { name: "Search", exact: true }));
+  await page.locator(".screen").pressSequentially("manual check"); await page.locator(".screen").press("Enter");
+  await wait(async () => tab.url().includes("q=manual+check"));
+  console.log("PASS: typing and Enter in the live picture reach Chrome's focused field in order.");
+  const workspace = page.getByRole("separator", { name: "Resize browser and chat", exact: true });
+  const detail = page.getByRole("separator", { name: "Resize voice and conversation", exact: true });
+  const originalWidth = (await page.locator(".control-pane").boundingBox()).width;
+  await workspace.focus(); await workspace.press("ArrowLeft");
+  assert.ok((await page.locator(".control-pane").boundingBox()).width > originalWidth + 15);
+  const originalHeight = (await page.locator(".assistant-area").boundingBox()).height;
+  await detail.focus(); await detail.press("ArrowDown");
+  assert.ok((await page.locator(".assistant-area").boundingBox()).height > originalHeight + 15);
+  await page.reload(); await page.getByText("At your service", { exact: true }).waitFor();
+  assert.ok((await page.locator(".control-pane").boundingBox()).width > originalWidth + 15);
+  await workspace.dblclick(); await detail.dblclick();
+  console.log("PASS: both workspace dividers resize their panels, remember sizes across reload and reset on double-click.");
+  await page.getByRole("tab", { name: "Jarvis's browser", exact: true }).click();
+  assert.equal(await page.getByRole("combobox", { name: "Work environment" }).inputValue(), "cloud");
+  await page.getByRole("button", { name: "Open browser", exact: true }).waitFor();
+  assert.equal(await page.locator("#screen").count(), 0);
+  await page.getByRole("button", { name: "Open browser", exact: true }).click();
+  await page.getByText("Add Browser Use in Connection settings first", { exact: true }).waitFor();
+  await page.getByRole("tab", { name: "Your screen", exact: true }).click();
+  await page.route("**/assistant/browser", (route) => route.fulfill({ json: { url: `http://127.0.0.1:${port}/demo`, expiresAt: Date.now() + 60000 } }));
+  await page.getByRole("tab", { name: "Jarvis's browser", exact: true }).click();
+  const cloudFrame = page.frameLocator('iframe[title="Jarvis browser — click and type"]');
+  await cloudFrame.getByRole("link", { name: "Pricing", exact: true }).click();
+  await cloudFrame.getByRole("heading", { name: "Pricing", exact: true }).waitFor();
+  await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].hide());
+  await page.locator('iframe[title="Jarvis browser — click and type"]').waitFor({ state: "detached" });
+  await desktop.evaluate(({ app }) => app.emit("activate"));
+  await page.locator('iframe[title="Jarvis browser — click and type"]').waitFor();
+  await page.getByRole("tab", { name: "Your screen", exact: true }).click();
+  await page.unroute("**/assistant/browser");
+  assert.equal(await page.getByRole("combobox", { name: "Work environment" }).inputValue(), "local");
+  console.log("PASS: browser selection changes the environment, never duplicates Your screen, and an embedded browser accepts direct clicks (local viewer fixture).");
   assert.deepEqual(errors, []);
   const out = path.join(root, "scratch", "verification"); mkdirSync(out, { recursive: true });
   await page.screenshot({ path: path.join(out, "desktop.png") });
@@ -96,10 +144,10 @@ try {
   await desktop.evaluate(({ app, BrowserWindow }) => { BrowserWindow.getAllWindows()[0].destroy(); app.emit("second-instance", {}, [], ""); });
   page = await recreated;
   await page.getByText("At your service", { exact: true }).waitFor();
-  console.log("PASS: reopening Jev recreates a destroyed native window instead of throwing a tray exception.");
+  console.log("PASS: reopening Jarvis recreates a destroyed native window instead of throwing a tray exception.");
   const quitting = desktop.process();
   await new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("Jev did not exit within its shutdown deadline")), 11000);
+    const timeout = setTimeout(() => reject(new Error("Jarvis did not exit within its shutdown deadline")), 11000);
     quitting.once("exit", (code) => { clearTimeout(timeout); code === 0 ? resolve() : reject(new Error(`Unexpected shutdown exit ${code}`)); });
     quitting.kill("SIGTERM");
   });
@@ -119,6 +167,14 @@ try {
   await wait(async () => (await get("/assistant/status")).connections.chrome);
   assert.equal((await get("/assistant/status")).tasks.length, 1);
   console.log("PASS: forced application termination permits a clean relaunch, preserves saved work and reconnects Chrome.");
+} catch (error) {
+  const current = desktop?.windows().find((w) => !w.isClosed());
+  if (current) {
+    const out = path.join(root, "scratch", "verification"); mkdirSync(out, { recursive: true });
+    await current.screenshot({ path: path.join(out, "failed-desktop.png"), timeout: 5000 }).catch(() => {});
+    writeFileSync(path.join(out, "failed-frames.json"), JSON.stringify(await Promise.all(current.frames().map(async (f) => ({ url: f.url(), text: (await f.locator("body").innerText({ timeout: 2000 }).catch(() => "unavailable")).slice(0, 1500) })))), { mode: 0o600 });
+  }
+  throw error;
 } finally {
   await chrome?.close(); await desktop?.close(); rmSync(home, { recursive: true, force: true });
 }

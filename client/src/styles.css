@@ -1,6 +1,6 @@
 :root {
-  --bg: #0f1218; --panel: #161b23; --panel-2: #1c232d; --border: #273041;
-  --text: #e6e9ef; --muted: #8b95a7; --accent: #6ea8fe; --accent-2: #39d98a;
+  --bg: #100d1a; --panel: #191428; --panel-2: #211a34; --border: #3a2d55;
+  --text: #f0eafb; --muted: #aa9dbf; --accent: #b89aff; --accent-2: #a78bfa;
   --warn: #ffbf47; --danger: #ff6b6b; --jev: #b48cff;
   --radius: 10px;
 }
@@ -268,7 +268,7 @@ body.desktop .pane-tabs button { padding: 3px 8px; }
 /* The familiar desktop panel gains a compact task and conversation section. */
 .assistant-panel { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); display: flex; flex-direction: column; gap: 10px; }
 .assistant-heading { display: flex; gap: 8px; align-items: baseline; justify-content: space-between; }
-.assistant-heading strong { color: #e8c67b; font-size: 16px; }
+.assistant-heading strong { color: #d8c4ff; font-size: 16px; }
 .assistant-heading span, .connection-strip, .quick-mode, .live-voice > span, .connection-settings, .task-empty { color: var(--muted); font-size: 12px; }
 .work-target { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .work-target select { color: var(--text); background: var(--panel-2); border: 1px solid var(--border); padding: 7px 10px; border-radius: 6px; }
@@ -276,32 +276,32 @@ body.desktop .pane-tabs button { padding: 3px 8px; }
 .connection-strip .ready { color: var(--accent-2); }
 .live-voice { display: flex; flex-direction: column; gap: 6px; }
 .voice-orb-wrap { position: relative; height: 124px; display: grid; place-items: center; padding-bottom: 22px; contain: layout paint; }
-.voice-orb { position: relative; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 30% 25%, #fff4d6 0%, #e8c27a 25%, #996328 57%, #291b11 85%); border: 1px solid #f5d79c; box-shadow: inset -8px -10px 12px #170d0480, 0 0 16px #d3a14e30; transform: scale(.92); }
-.voice-orb span { position: absolute; inset: 9px; border-radius: 50%; border: 1px solid #fff0c650; border-right-color: transparent; transform: rotate(-25deg); }
-.voice-orb-ring { position: absolute; width: 92px; height: 92px; margin-top: -22px; border: 1px solid #cda46050; border-radius: 50%; opacity: .5; }
-.voice-orb-label { position: absolute; bottom: 6px; color: #cfbb94; font-size: 12px; }
+.voice-orb { position: relative; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 30% 25%, #f5edff 0%, #c5a3ff 25%, #7950b5 57%, #27153d 85%); border: 1px solid #dcc7ff; box-shadow: inset -8px -10px 12px #170b2d80, 0 0 16px #b47aff30; transform: scale(.92); }
+.voice-orb span { position: absolute; inset: 9px; border-radius: 50%; border: 1px solid #ead9ff60; border-right-color: transparent; transform: rotate(-25deg); }
+.voice-orb-ring { position: absolute; width: 92px; height: 92px; margin-top: -22px; border: 1px solid #bf94ff60; border-radius: 50%; opacity: .5; }
+.voice-orb-label { position: absolute; bottom: 6px; color: #c5b0e0; font-size: 12px; }
 .voice-orb-wrap.idle .voice-orb { opacity: .6; }
 .voice-orb-wrap.connecting .voice-orb { animation: jev-orb-breathe 1.8s ease-in-out infinite; }
 .voice-orb-wrap.listening .voice-orb { animation: jev-orb-breathe 3s ease-in-out infinite; }
 .voice-orb-wrap.hearing .voice-orb, .voice-orb-wrap.speaking .voice-orb { animation: jev-orb-speak .65s ease-in-out infinite alternate; }
 .voice-orb-wrap.hearing .voice-orb-ring, .voice-orb-wrap.speaking .voice-orb-ring { animation: jev-orb-ring 1.3s ease-out infinite; }
-.voice-orb-wrap.speaking .voice-orb { background: radial-gradient(circle at 30% 25%, #fff8e8, #f2ce88 28%, #ad7b38 62%, #332216); }
+.voice-orb-wrap.speaking .voice-orb { background: radial-gradient(circle at 30% 25%, #fcf5ff, #d9b7ff 28%, #a069e0 62%, #352048); }
 .voice-orb-wrap.paused *, .voice-orb-wrap.paused *::before, .voice-orb-wrap.paused *::after { animation-play-state: paused !important; }
 @keyframes jev-orb-breathe { 0%,100% { transform: scale(.92); opacity: .75; } 50% { transform: scale(1); opacity: 1; } }
 @keyframes jev-orb-speak { from { transform: scale(.94); } to { transform: scale(1.08); } }
 @keyframes jev-orb-ring { from { transform: scale(.85); opacity: .7; } to { transform: scale(1.13); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .voice-orb-wrap * { animation: none !important; } }
-.live-talk { border: 1px solid #b39554; border-radius: 8px; background: #332c1d; color: #f5dba3; padding: 10px; cursor: pointer; font-weight: 600; }
+.live-talk { border: 1px solid #a77bdd; border-radius: 8px; background: #3d2859; color: #ead7ff; padding: 10px; cursor: pointer; font-weight: 600; }
 .live-voice.on .live-talk { border-color: var(--accent-2); background: #153025; color: #8cf0b5; }
 .assistant-error { color: var(--warn); margin: 0; font-size: 12px; }
 .connection-settings summary, .work-task summary { cursor: pointer; }
 .connection-settings button, .task-controls button, .task-approval button { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 5px 8px; cursor: pointer; margin: 4px 5px 0 0; }
 .config-label { font-size: 11px; overflow-wrap: anywhere; }
-.voice-transcript { max-height: 150px; overflow-y: auto; font-size: 12px; border-left: 2px solid #b39554; padding-left: 9px; }
+.voice-transcript { max-height: 150px; overflow-y: auto; font-size: 12px; border-left: 2px solid #a77bdd; padding-left: 9px; }
 .voice-transcript p { margin: 4px 0; }
 .task-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
 .work-task { padding: 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; }
-.work-task.running { border-left: 2px solid #e8c67b; }
+.work-task.running { border-left: 2px solid #d8c4ff; }
 .work-task.waiting_for_user { border-color: var(--warn); }
 .task-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: var(--muted); text-transform: capitalize; }
 .task-goal { margin: 6px 0; font-weight: 500; overflow-wrap: anywhere; }
@@ -325,16 +325,16 @@ body.desktop .topbar button { margin-left: 0; white-space: nowrap; }
   body.desktop .topbar .voice { max-width: 160px; }
 }
 .assistant-panel { flex: none; }
-.first-run { padding: 12px; border: 1px solid #b39554; border-radius: 8px; background: #241f16; }
+.first-run { padding: 12px; border: 1px solid #a77bdd; border-radius: 8px; background: #241935; }
 .first-run p { font-size: 12px; line-height: 1.5; color: var(--muted); }
-.first-run button { border: 1px solid #b39554; border-radius: 6px; background: #332c1d; color: #f5dba3; padding: 8px 12px; cursor: pointer; }
+.first-run button { border: 1px solid #a77bdd; border-radius: 6px; background: #3d2859; color: #ead7ff; padding: 8px 12px; cursor: pointer; }
 .settings-backdrop { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: rgba(0,0,0,.75); padding: 16px; }
 .settings-dialog { width: min(540px, 100%); max-height: 92vh; overflow-y: auto; background: #16191d; color: #edf2f7; border: 1px solid #434a53; border-radius: 14px; padding: 18px; box-shadow: 0 18px 70px #0009; }
 .settings-title, .settings-actions, .connection-field > div, .connected-app-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .settings-title h2 { font-size: 18px; margin: 0; }
 .settings-dialog p { font-size: 12px; line-height: 1.5; color: #bfc8d2; }
 .connection-fields fieldset { border: 1px solid #3a414a; border-radius: 8px; margin: 14px 0; padding: 12px; }
-.connection-fields legend { color: #e3c082; padding: 0 6px; font-size: 13px; }
+.connection-fields legend { color: #d1afff; padding: 0 6px; font-size: 13px; }
 .connection-field { margin: 8px 0; }
 .connection-field label { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; margin-bottom: 5px; }
 .connection-field label span { color: #a0b29d; font-size: 11px; }
@@ -343,3 +343,37 @@ body.desktop .topbar button { margin-left: 0; white-space: nowrap; }
 .settings-dialog button, .connected-apps button { font: inherit; font-size: 12px; cursor: pointer; padding: 7px 10px; border: 1px solid #545f6c; border-radius: 6px; color: #f5f5f5; background: #29313b; }
 .settings-dialog button:disabled, .connected-apps button:disabled { opacity: .5; cursor: default; }
 .connected-app-row { font-size: 12px; padding: 8px 0; }
+
+/* Adjustable workspace: browser / voice and tasks / conversation. */
+.layout.desktop { gap: 0; padding: 10px; }
+.split-divider { flex: none; display: grid; place-items: center; height: 12px; cursor: row-resize; touch-action: none; user-select: none; border-radius: 6px; }
+.split-divider span { width: 40px; height: 3px; border-radius: 4px; background: var(--border); }
+.split-divider:hover span, .split-divider:focus-visible span { background: var(--accent); }
+.split-divider:focus-visible { outline: 1px solid var(--accent); }
+.layout.desktop .control-pane { gap: 0; overflow: hidden; padding: 0; min-width: 0; }
+.assistant-area { flex: 0 1 var(--assistant-height, 420px); min-height: 150px; overflow-y: auto; }
+.conversation-pane { display: flex; flex-direction: column; flex: 1 1 250px; gap: 10px; min-height: 150px; overflow-y: auto; padding: 6px 2px; }
+.conversation-pane .text-row textarea { min-height: 88px; font-size: 15px; resize: vertical; }
+.conversation-pane .log { min-height: 70px; }
+.cloud-browser { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
+.cloud-browser .browser-view { flex: 1; min-height: 0; }
+.cloud-toolbar { display: flex; flex: none; gap: 10px; align-items: center; justify-content: space-between; padding: 7px 10px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--border); }
+.cloud-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 24px; text-align: center; }
+.cloud-empty strong { color: #d8c4ff; font-size: 20px; }
+.cloud-empty p { margin: 0; }
+.cloud-empty small { max-width: 320px; color: var(--muted); }
+.cloud-empty button, .cloud-toolbar button { border: 1px solid var(--accent); background: #352147; color: var(--text); border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.permissions label { display: flex; align-items: center; gap: 7px; padding: 6px 0; color: var(--text); flex-wrap: wrap; }
+.permissions small { color: var(--muted); }
+.permissions input { accent-color: var(--accent); }
+.layout.desktop .screen:has(.cloud-browser) { overflow: hidden; align-items: stretch; }
+@media (min-width: 900px) {
+  .layout.desktop { grid-template-columns: minmax(320px, 1fr) 14px minmax(320px, min(var(--control-width, 480px), calc(100% - 334px))); }
+  .workspace-divider { width: 14px; height: 100%; cursor: col-resize; }
+  .workspace-divider span { width: 3px; height: 44px; }
+}
+@media (max-width: 899px) {
+  .layout.desktop { display: flex; flex-direction: column; }
+  .layout.desktop .browser-pane.sized { flex: none; height: 42%; min-height: 160px; max-height: calc(100% - 310px); }
+  .layout.desktop .control-pane { flex: 1; min-height: 280px; }
+}

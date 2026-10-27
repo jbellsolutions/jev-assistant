@@ -24,14 +24,14 @@ import { Help } from "./components/Help.tsx";
 import { LiveView } from "./components/LiveView.tsx";
 import { TimerBar } from "./components/TimerBar.tsx";
 import { TopBar } from "./components/TopBar.tsx";
-import { PaneDivider } from "./components/PaneDivider.tsx";
+import { SplitDivider } from "./components/SplitDivider.tsx";
 import { loadPaneHeight, savePaneHeight } from "./layout.ts";
 import { useSocket } from "./hooks/useSocket.ts";
 import { initialState, reducer } from "./state.ts";
 import { detectTransport } from "./transport.ts";
 
 export function App() {
-  // The transcript outlives a restart of Jev: kept in this window's own storage (a per-viewer
+  // The transcript outlives a restart of Jarvis: kept in this window's own storage (a per-viewer
   // convenience — if storage is unavailable the log just starts empty, as before).
   const [state, dispatch] = useReducer(reducer, initialState, (s) => reducer(s, { type: "restore_log", entries: savedLog() }));
   useEffect(() => {
@@ -47,6 +47,15 @@ export function App() {
   const [target, setTarget] = useState<WorkTarget>("local");
   const [quick, setQuick] = useState(false);
   const liveVoice = useLiveVoice(transport, target, state.paused, state.voice?.muted ?? false);
+  const [controlWidth, setControlWidth] = useState<number | null>(() => readSize("jarvis.controlWidth"));
+  const [assistantHeight, setAssistantHeight] = useState<number | null>(() => readSize("jarvis.assistantHeight"));
+  const changeTarget = async (next: WorkTarget) => {
+    try {
+      if (liveVoice.state === "on") await liveVoice.changeTarget(next);
+      setTarget(next); setQuick(false);
+      dispatch({ type: "pane_tab", tab: next === "cloud" ? "browser" : next === "orgo" ? "cofounder" : "screen" });
+    } catch (e) { dispatch({ type: "status", text: e instanceof Error ? e.message : "Could not switch environment", level: "warn" }); }
+  };
   const send = useSocket(transport, dispatch, (connected) =>
     dispatch({ type: "socket", connected }),
   );
@@ -109,7 +118,7 @@ export function App() {
         if (files.length) setChips((cs) => cs.filter((c) => c.state === "uploading"));
       } else {
         void assistantFetch<{ message: string }>(transport, "/command", { text: trimmed, target, requestId: crypto.randomUUID(), ...(files.length ? { attachments: files } : {}) }).then((r) => {
-          dispatch({ type: "notice", from: "Jev", text: r.message, level: "ok" });
+          dispatch({ type: "notice", from: "Jarvis", text: r.message, level: "ok" });
           if (files.length) setChips((cs) => cs.filter((c) => c.state === "uploading"));
           void assistant.refresh();
         }).catch((e) => dispatch({ type: "status", text: e instanceof Error ? e.message : "Task could not be saved", level: "error" }));
@@ -203,9 +212,12 @@ export function App() {
       />
       <main
         className={`layout${desktop ? " desktop" : ""}${dropping ? " dropping" : ""}`}
+        style={{ "--control-width": `${controlWidth ?? 480}px`, "--assistant-height": `${assistantHeight ?? 420}px` } as React.CSSProperties}
       >
         {dropping && <div className="drop-overlay">Drop to attach</div>}
         <LiveView
+          transport={transport}
+          cloudRunning={!!assistant.status?.tasks.some((t) => t.target === "cloud" && ["queued", "running", "waiting_for_user"].includes(t.status))}
           page={state.page}
           jevChrome={state.jevChrome}
           status={state.status}
@@ -214,16 +226,18 @@ export function App() {
           fixedViewport={desktop ? { width: 1024, height: 640 } : undefined}
           browserView={state.browserView}
           tab={state.pane.tab}
-          onTab={(tab) => dispatch({ type: "pane_tab", tab })}
+          onTab={(tab) => void changeTarget(tab === "browser" ? "cloud" : tab === "cofounder" ? "orgo" : "local")}
           height={desktop ? paneHeight : undefined}
           cofounder={state.cofounder}
           cofounderView={state.cofounderView}
           cofounderFrame={state.cofounderFrame}
           onScreen={onScreen}
         />
-        {desktop && <PaneDivider height={paneHeight} onHeight={setPaneHeight} />}
+        {desktop && <SplitDivider workspace onSize={setPaneHeight} onWidth={(v) => { setControlWidth(v); saveSize("jarvis.controlWidth", v); }} />}
         <aside className="control-pane">
-          <AssistantPanel status={assistant.status} error={assistant.error} target={target} onTarget={setTarget} voice={liveVoice} transport={transport} refresh={assistant.refresh} quick={quick} onQuick={setQuick} onScreen={onScreen} />
+          <div className="assistant-area"><AssistantPanel status={assistant.status} error={assistant.error} target={target} onTarget={(v) => void changeTarget(v)} voice={liveVoice} transport={transport} refresh={assistant.refresh} quick={quick} onQuick={setQuick} onScreen={onScreen} /></div>
+          <SplitDivider onSize={(v) => { setAssistantHeight(v); saveSize("jarvis.assistantHeight", v); }} />
+          <div className="conversation-pane">
           {state.pane.tab === "cofounder" && state.cofounder && "computer" in state.cofounder && (
             <CofounderChat history={state.cofounderHistory} send={send} visible={onScreen} connected={state.connected} />
           )}
@@ -262,11 +276,15 @@ export function App() {
             onNewChat={() => command("new chat")}
           />
           <Help />
+          </div>
         </aside>
       </main>
     </>
   );
 }
+
+function readSize(key: string): number | null { try { const value = Number(localStorage.getItem(key)); return Number.isFinite(value) && value > 0 ? value : null; } catch { return null; } }
+function saveSize(key: string, value: number | null) { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, String(value)); } catch {} }
 
 /** localStorage, or nothing: reading the property itself can throw in a locked-down context. */
 function safeStorage(): Storage | undefined {

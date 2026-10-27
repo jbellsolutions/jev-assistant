@@ -20,7 +20,7 @@ export function ConnectedApps({ transport, configured }: { transport: Transport;
     finally { setBusy(false); }
   };
   return <div className="connected-apps"><h4>Connected apps</h4>
-    <p>{configured ? "Use app tools with My computer or Co-founder's computer. Sends and changes ask for approval." : "Add your Composio project key in Your connections, then restart Jev."}</p>
+    <p>{configured ? "Use app tools with My computer or Co-founder's computer. Sends and changes ask for approval." : "Add your Composio project key in Your connections, then restart Jarvis."}</p>
     <button type="button" disabled={!configured || busy} onClick={() => void refresh()}>Refresh connected apps</button>
     {apps.map((a) => <div className="connected-app-row" key={a.slug}><span>{a.slug} · {a.ambiguous ? "Multiple accounts: choose a Composio user with one account" : a.connected ? "Connected" : "Not connected"}</span>{!a.connected && !a.ambiguous && <button type="button" disabled={busy} onClick={() => void connect(a.slug)}>Connect {a.slug}</button>}</div>)}
     {message && <p role="status">{message}</p>}

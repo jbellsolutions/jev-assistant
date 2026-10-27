@@ -100,5 +100,6 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
     return () => { clearInterval(timer); void stop(); };
   }, [stop]);
   const hush = useCallback(() => { hushFlag.current = true; for (const el of audio.current) el.muted = true; setSpeaking(false); }, []);
-  return { state, error, speaking, userSpeaking, transcripts, start, stop, hush };
+  const changeTarget = useCallback(async (next: WorkTarget) => { const name = serverRoom.current; if (name) await assistantFetch(transport, "/voice/target", { room: name, target: next }); }, [transport]);
+  return { state, error, speaking, userSpeaking, transcripts, start, stop, hush, changeTarget };
 }

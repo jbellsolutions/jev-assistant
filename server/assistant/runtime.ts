@@ -5,7 +5,7 @@ import express, { type Express, type RequestHandler } from "express";
 import { AccessToken, AgentDispatchClient, RoomServiceClient } from "livekit-server-sdk";
 import type { AssistantCommand, AssistantStatus, WorkTarget } from "../../core/assistant.js";
 import type { Hands } from "../brain/tools.js";
-import { TaskQueue } from "./tasks.js";
+import { TaskQueue, type TaskWorker } from "./tasks.js";
 import { LocalWorker } from "./local-worker.js";
 import { BrowserUseWorker } from "./browser-use.js";
 import { createRequestRouter } from "./router.js";
@@ -13,18 +13,23 @@ import { AttachmentStore } from "../attachments.js";
 import { appConnections } from "./app-connections.js";
 import type { VoiceConnection } from "../../core/voice-connection.js";
 import { VoiceLeases } from "./voice-leases.js";
+import { AppPermissions, PERMISSION_ACTIONS, spokenApproval } from "./permissions.js";
+import { voiceAgentName } from "../voice/identity.js";
 
-export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Hands; chromeReady: () => boolean; computerReady: () => boolean }) {
+export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Hands; chromeReady: () => boolean; computerReady: () => boolean; workers?: Partial<Record<WorkTarget, TaskWorker>> }) {
   const env = opts.env;
+  const permissions = new AppPermissions(env.JEV_HOME || path.join(homedir(), ".jev-assistant"));
+  const appWriteAllowed = (slug: string, account: string) => permissions.allowed(slug, account);
   const cloud = new BrowserUseWorker({ key: env.BROWSER_USE_API_KEY, profileId: env.BROWSER_USE_PROFILE_ID, maxCostUsd: env.JEV_CLOUD_TASK_BUDGET_USD,
+    retainBrowser: true, home: env.JEV_HOME || path.join(homedir(), ".jev-assistant"),
     workspaceId: env.BROWSER_USE_WORKSPACE_ID, proxyCountryCode: env.BROWSER_USE_PROXY_COUNTRY_CODE ?? "us", record: env.BROWSER_USE_RECORD === "true",
     timeoutMs: (Number(env.BROWSER_USE_TIMEOUT_MINUTES) || 15) * 60_000,
   });
-  const queue = new TaskQueue({ dir: path.join(env.JEV_HOME || path.join(homedir(), ".jev-assistant"), "work"), workers: { local: new LocalWorker({ env, hands: opts.hands }), orgo: new LocalWorker({ env, hands: opts.hands }), cloud } });
+  const queue = new TaskQueue({ dir: path.join(env.JEV_HOME || path.join(homedir(), ".jev-assistant"), "work"), pauseQueuedAtStartup: true, workers: { local: new LocalWorker({ env, hands: opts.hands, appWriteAllowed }), orgo: new LocalWorker({ env, hands: opts.hands, appWriteAllowed }), cloud, ...opts.workers } });
   const route = createRequestRouter(env);
   const apps = appConnections(env);
   const files = new AttachmentStore();
-  const voiceRooms = new Map<string, { owner: string; createdAt: number; connection: VoiceConnection; target: WorkTarget; expires: number; seen: Map<string, string>; requests: Map<string, Promise<{ message: string }>> }>();
+  const voiceRooms = new Map<string, { owner: string; createdAt: number; connection: VoiceConnection; target: WorkTarget; expires: number; seen: Map<string, string>; approval?: { taskId: string; requestId: string | null }; requests: Map<string, Promise<{ message: string }>> }>();
   const leases = new VoiceLeases(env.JEV_HOME || path.join(homedir(), ".jev-assistant"));
   const inheritedRooms = new Set(leases.list());
   let recovery: Promise<void> | null = null;
@@ -41,6 +46,7 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     await recovery;
   };
   let paused = false;
+  let cloudClosing = false;
   let voiceWorker: AssistantStatus["voiceWorker"] = "off";
   let voiceError: string | undefined;
   const status = (): AssistantStatus => ({
@@ -49,18 +55,23 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     voiceWorker, ...(voiceError ? { voiceError } : {}),
   });
   const command = async ({ text, target, requestId, attachments, context }: AssistantCommand): Promise<{ message: string }> => {
-    if (paused) throw new Error("Jev is paused. Resume it before giving another task.");
+    if (paused) throw new Error("Jarvis is paused. Resume it before giving another task.");
+    if (target === "cloud" && cloudClosing) throw new Error("The browser is closing. Try again in a moment.");
     const candidates = queue.list().filter((t) => t.target === target && !["completed", "failed", "cancelled"].includes(t.status));
-    const current = candidates.find((t) => ["running", "waiting_for_user"].includes(t.status)) ?? candidates[0];
+    const active = candidates.find((t) => ["running", "waiting_for_user"].includes(t.status));
+    const current = active ?? candidates[0];
     // Authorization replies are interpreted only when there is exactly one current pending action.
-    if (current?.approval && /^(?:yes|approve|allow|go ahead|no|deny|don't)[.!]?$/i.test(text.trim())) {
-      await queue.approve(current.id, /^(?:no|deny|don't)/i.test(text.trim()) ? "deny" : "once", current.approval.requestId);
+    const answer = spokenApproval(text);
+    if (current?.approval && answer) {
+      await queue.approve(current.id, answer, current.approval.requestId);
       return { message: "Your answer was applied to the pending action." };
     }
-    const intent = await route(text, current);
+    let intent = await route(text, current);
+    // Explicit corrections still work when semantic routing is unavailable.
+    if (current?.approval && intent === "task" && text.length < 240 && /^(?:actually\b|instead\b|no[, ]|change (?:the|that)\b|use .+ instead\b)/i.test(text.trim()) && !/\b(?:also|separately|new task|next task|after that)\b/i.test(text)) intent = "correction";
     if (intent === "status") return { message: current ? `${current.goal}: ${current.status}. ${current.progress}` : "There is no active task in this environment." };
     if (["pause", "cancel", "resume", "correction"].includes(intent)) {
-      if (!current || candidates.length > 1) return { message: "Choose the task in the panel so I change the right one." };
+      if (!current || (!active && candidates.length > 1)) return { message: "Choose the task in the panel so I change the right one." };
       if (intent === "correction") { await queue.control(current.id, "pause"); await queue.control(current.id, "resume", text); }
       else await queue.control(current.id, intent as "pause" | "cancel" | "resume");
       return { message: intent === "correction" ? "I saved your correction and will check the current state before continuing." : `Task ${intent === "resume" ? "queued to resume" : intent === "pause" ? "paused" : "cancelled"}.` };
@@ -77,6 +88,17 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     };
     api.get("/status", (_req, res) => res.json(status()));
     api.get("/apps", handle(async (_req, res) => res.json({ apps: await apps.list() })));
+    api.get("/permissions", handle(async (_req, res) => {
+      const accounts = env.COMPOSIO_API_KEY ? await apps.selectedAccounts() : new Map<string, string>();
+      res.json({ actions: Object.entries(PERMISSION_ACTIONS).map(([slug, label]) => { const account = accounts.get(slug.split("_")[0]!.toLowerCase()); return { slug, label, connected: !!account, allowed: !!account && permissions.allowed(slug, account) }; }) });
+    }));
+    api.post("/permissions", handle(async (req, res) => {
+      const { slug, allow } = req.body ?? {};
+      if (typeof slug !== "string" || !Object.hasOwn(PERMISSION_ACTIONS, slug) || typeof allow !== "boolean") throw new Error("Choose a permission and whether to allow it");
+      const account = (await apps.selectedAccounts()).get(slug.split("_")[0]!.toLowerCase());
+      if (!account) throw new Error("Connect exactly one account for this app first");
+      permissions.set(slug, account, allow); res.json({ ok: true });
+    }));
     api.post("/apps/connect", handle(async (req, res) => res.json({ url: await apps.connect(req.body?.toolkit) })));
     api.post("/command", handle(async (req, res) => {
       const b = req.body;
@@ -96,12 +118,30 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
       await queue.approve(String(req.params.id), req.body?.choice, req.body?.requestId ?? null); res.json({ ok: true });
     }));
     api.get("/tasks/:id/live-view", (req, res) => res.json({ url: cloud.liveView(String(req.params.id)) ?? null }));
+    api.get("/browser", handle(async (_req, res) => res.json(await cloud.inspectView())));
+    api.post("/browser/open", handle(async (_req, res) => {
+      if (paused) throw new Error("Resume Jarvis before opening its browser");
+      if (cloudClosing) throw new Error("The browser is closing. Try again in a moment.");
+      if (!env.BROWSER_USE_API_KEY) throw new Error("Add Browser Use in Connection settings first");
+      if (cloud.browserView().url) return res.json(cloud.browserView());
+      const existing = queue.list().find((t) => t.target === "cloud" && ["queued", "running"].includes(t.status));
+      const task = existing ?? queue.submit("Open about:blank for manual browsing. Do not visit any other page or take other actions. Finish once the blank page is ready.", "cloud");
+      res.json({ taskId: task.id, url: null });
+    }));
+    api.post("/browser/close", handle(async (_req, res) => {
+      if (cloudClosing) throw new Error("The browser is already closing");
+      cloudClosing = true;
+      try {
+        for (const t of queue.list().filter((t) => t.target === "cloud" && ["running", "queued", "waiting_for_user"].includes(t.status))) { await queue.control(t.id, "pause"); await queue.settled(t.id); }
+        await cloud.closeBrowser(); res.json({ ok: true });
+      } finally { cloudClosing = false; }
+    }));
     api.post("/voice/token", handle(async (req, res) => {
       if (voiceCreating) throw new Error("A voice conversation is already starting. Try again in a moment.");
       voiceCreating = true;
       try {
-      if (paused) throw new Error("Resume Jev before connecting voice");
-      if (!status().connections.openai || !status().connections.livekit) throw new Error("Add your OpenAI and LiveKit credentials in Connection settings, then restart Jev.");
+      if (paused) throw new Error("Resume Jarvis before connecting voice");
+      if (!status().connections.openai || !status().connections.livekit) throw new Error("Add your OpenAI and LiveKit credentials in Connection settings, then restart Jarvis.");
       if (voiceWorker !== "running") throw new Error(voiceError || "The voice worker is starting. Try again in a moment.");
       if (!["local", "cloud", "orgo"].includes(req.body?.target)) throw new Error("Choose an environment first");
       await recoverVoice();
@@ -123,7 +163,7 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
       const host = url.replace(/^ws/, "http");
       leases.add(room);
       voiceRooms.set(room, { owner, createdAt: Date.now(), connection: { state: "connecting" }, target: req.body.target, expires: Date.now() + 35 * 60000, seen: new Map(), requests: new Map() });
-      try { await new AgentDispatchClient(host, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, { requestTimeout: 4 }).createDispatch(room, "jev-assistant"); }
+      try { await new AgentDispatchClient(host, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, { requestTimeout: 4 }).createDispatch(room, voiceAgentName(env)); }
       catch { voiceRooms.delete(room); inheritedRooms.add(room); await recoverVoice().catch(() => {}); throw new Error("Could not dispatch the voice agent. Check LiveKit credentials and worker status."); }
       res.json({ url, token: await token.toJwt(), room });
       } finally { voiceCreating = false; }
@@ -133,6 +173,12 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
       if (voiceRooms.has(room) || inheritedRooms.has(room)) {
         await endRoom(room);
       }
+      res.json({ ok: true });
+    }));
+    api.post("/voice/target", handle((req, res) => {
+      const session = voiceRooms.get(String(req.body?.room));
+      if (!session || !["local", "cloud", "orgo"].includes(req.body?.target)) throw new Error("Choose a connected voice session and environment");
+      session.target = req.body.target; session.approval = undefined; session.seen.clear();
       res.json({ ok: true });
     }));
     api.post("/voice/connection", handle((req, res) => {
@@ -154,7 +200,20 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
       const text = typeof req.body?.text === "string" ? req.body.text.trim().slice(0, 12000) : "";
       if (!id || !text) return res.json({ message: "I didn't receive a complete request. Please say the task again." });
       let pending = v.requests.get(id);
-      if (!pending) { pending = command({ text, target: v.target, requestId: `${req.body.room}:${id}`, context: typeof req.body.context === "string" ? req.body.context.slice(-8000) : undefined }); v.requests.set(id, pending); }
+      if (!pending) {
+        const choice = spokenApproval(text);
+        if (choice) {
+          const offered = v.approval; v.approval = undefined;
+          const current = offered ? queue.get(offered.taskId) : undefined;
+          pending = current?.status === "waiting_for_user" && current.approval?.requestId === offered?.requestId
+            ? queue.approve(current.id, choice, offered!.requestId).then(() => ({ message: choice === "deny" ? "That action was declined." : "Your approval was received. Continuing that action." }))
+            : Promise.resolve({ message: "There is no current spoken approval to apply that answer to. Ask me to read the pending action again." });
+        } else {
+          if (v.approval) { v.seen.delete(v.approval.taskId); v.approval = undefined; }
+          pending = command({ text, target: v.target, requestId: `${req.body.room}:${id}`, context: typeof req.body.context === "string" ? req.body.context.slice(-8000) : undefined });
+        }
+        v.requests.set(id, pending);
+      }
       res.json(await pending);
     }));
     api.post("/voice/updates", (req, res) => {
@@ -162,18 +221,22 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
       if (!v || v.expires < Date.now()) return void res.status(400).json({ error: "Voice session ended" });
       const updates: string[] = [];
       for (const t of queue.list().filter((t) => t.target === v.target).slice(0, 10)) {
-        const before = v.seen.get(t.id); v.seen.set(t.id, t.status);
-        if (before !== t.status && (before || t.createdAt > Date.now() - 60000) && ["completed", "failed", "waiting_for_user"].includes(t.status)) updates.push(`${t.goal}: ${t.approval?.summary ?? t.error ?? t.output.slice(0, 2000)}`);
+        const marker = `${t.status}:${t.approval?.requestId ?? ""}`;
+        const before = v.seen.get(t.id); v.seen.set(t.id, marker);
+        if (before !== marker && ["completed", "failed", "waiting_for_user"].includes(t.status) && (before || t.createdAt > Date.now() - 60000 || t.approval)) {
+          if (t.approval) { v.approval = { taskId: t.id, requestId: t.approval.requestId }; updates.push(`Ask the user for a yes or no now: May I ${t.approval.summary}? Say they can answer by voice. Wait for their answer; do not infer approval.`); }
+          else updates.push(`${t.goal}: ${t.error ?? t.output.slice(0, 2000)}`);
+        }
       }
       res.json({ updates });
     });
     app.use("/assistant", api);
   }
-  return { queue, status, command, mount, recoverVoice,
+  return { queue, status, command, mount, recoverVoice, recoverCloud: () => cloud.recover(queue.list().filter((t) => t.target === "cloud" && ["queued", "running"].includes(t.status)).flatMap((t) => t.providerBrowserId ? [t.providerBrowserId] : [])),
     canRestart() { return !voiceCreating && !queue.list().some((t) => ["running", "queued", "waiting_for_user"].includes(t.status)) && ![...voiceRooms.values()].some((s) => s.expires > Date.now()); },
     setPaused(value: boolean) { paused = value; queue.setEnabled(!value); },
     setVoiceWorker(value: AssistantStatus["voiceWorker"], error?: string) { voiceWorker = value; voiceError = error; },
-    async close() { await Promise.allSettled([queue.close(), ...[...voiceRooms.keys()].map(endRoom)]); },
+    async close() { await Promise.allSettled([queue.close().then(() => cloud.closeBrowser()), ...[...voiceRooms.keys()].map(endRoom)]); },
   };
 }
 export type AssistantRuntime = ReturnType<typeof createAssistantRuntime>;

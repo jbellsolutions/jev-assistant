@@ -1,5 +1,15 @@
 # Phase 1 verification
 
+## Jarvis 1.1 update
+
+The product is now Jarvis, with purple styling, two adjustable workspace dividers, interactive local Chrome input, a separate Browser Use viewer and account-specific remembered API permissions. The private profile and application identity remain compatible with Jev.
+
+**909 tests in 75 files** passed with TypeScript and renderer builds. Added checks cover permission storage/account isolation, natural approval replies, stale/repeated voice replies, changing voice task targets, retained cloud sessions, owned-browser recovery, missing ready-event viewer lookup and safe installer migration, paused startup recovery and corrections with older paused tasks. The desktop smoke also tests real Chrome picture clicks, focused typing plus Enter, divider persistence/reset and an interactive embedded viewer fixture.
+
+Live-service checks used disposable profiles and synthetic data. Through LiveKit/GPT-Live, Jarvis spoke a pending approval, transcribed a simulated microphone answer from Chromium's fake audio device, approved exactly one mock send and closed its room. No actual Slack message was sent. A separate Browser Use check opened the viewer, reused its session for a follow-up, verified a public page, accepted a manual click through the live iframe and independently confirmed browser shutdown. Credentials, live-view links and raw logs remain private.
+
+These automated service checks do not replace a new human microphone conversation or verify arbitrary authenticated workflows. The owner's Composio key is not configured, so remembered API permissions cannot be enabled for their Slack account yet; browser/Mac requests use spoken confirmation. Existing preview signing and platform limitations still apply. See [Jarvis 1.1 changes](jarvis-1.1.md).
+
 ## October 27 stability update
 
 Version 1.0.1 adds desktop shutdown/reopen recovery, supervised voice-worker recovery, abandoned LiveKit room cleanup, Chrome reconnection fixes, and a lightweight gold voice orb above streaming transcripts. See [findings and changes](stability-1.0.1.md).

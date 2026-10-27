@@ -22,9 +22,9 @@ export function TopBar({
   paused?: boolean;
   /** Something is running or being said: show the stop button. */
   busy?: boolean;
-  /** Jev's voice is playing. */
+  /** Jarvis's voice is playing. */
   speaking?: boolean;
-  /** Whether Jev has a voice at all, and which. Shown because silence and a missing key looked
+  /** Whether Jarvis has a voice at all, and which. Shown because silence and a missing key looked
    *  identical from the panel — the only place that said so was stdout. */
   voice?: State["voice"];
   /** The connected Chrome extension; a pill appears only when it is an older build. */
@@ -41,13 +41,13 @@ export function TopBar({
   /** Mute or unmute her voice; the pill becomes the switch. */
   onMute?: (muted: boolean) => void;
 }) {
-  const label = !jev ? "connecting…" : jev.enabled ? `Jev · ${jev.model}` : "Local controls";
+  const label = !jev ? "connecting…" : jev.enabled ? `TypeSafe Jev · ${jev.model}` : "Local controls";
   const tone = !jev ? "" : jev.enabled ? "jev" : "heuristic";
   return (
     <header className={`topbar${paused ? " paused" : ""}`}>
       <div className="brand">
         <span className="dot" />
-        <strong>{desktop ? "Jev" : "Jev Voice Browser"}</strong>
+        <strong>{desktop ? "Jarvis" : "Jarvis Voice Browser"}</strong>
         <span className="sub">{paused ? "paused" : desktop ? "⌥Space" : "voice · tasks · your computer"}</span>
       </div>
       {onHush && speaking && !paused && (
@@ -66,7 +66,7 @@ export function TopBar({
         </button>
       )}
       {onPause && (
-        <button type="button" className={`pause-btn${paused ? " on" : ""}`} title={paused ? "Switch Jev back on" : "Switch Jev off: it stops acting until resumed"} onClick={() => onPause(!paused)}>
+        <button type="button" className={`pause-btn${paused ? " on" : ""}`} title={paused ? "Switch Jarvis back on" : "Switch Jarvis off: it stops acting until resumed"} onClick={() => onPause(!paused)}>
           {paused ? "⏻ Resume" : "⏻ Pause"}
         </button>
       )}
@@ -84,11 +84,11 @@ export function TopBar({
         <button
           type="button"
           className={`pill talk-to${talkingTo === "cofounder" ? " cofounder" : ""}`}
-          title={talkingTo === "cofounder" ? 'What you say goes straight to the co-founder. Click (or say "back to Jev") to talk to Jev.' : 'Click (or say "talk to the co-founder") to talk to the co-founder directly.'}
+          title={talkingTo === "cofounder" ? 'What you say goes straight to the co-founder. Click (or say "back to Jarvis") to talk to Jarvis.' : 'Click (or say "talk to the co-founder") to talk to the co-founder directly.'}
           onClick={() => onTalkTo(talkingTo === "cofounder" ? "jev" : "cofounder")}
           aria-pressed={talkingTo === "cofounder"}
         >
-          Talking to: {talkingTo === "cofounder" ? "Co-founder" : "Jev"}
+          Talking to: {talkingTo === "cofounder" ? "Co-founder" : "Jarvis"}
         </button>
       )}
       {bridgeWarning(bridge) && (
@@ -111,7 +111,7 @@ export function TopBar({
 /** Why the connected Chrome extension needs a reload, or null when it's current (or absent). */
 export function bridgeWarning(bridge: State["bridge"]): string | null {
   if (!bridge || bridge.protocol >= bridge.current) return null;
-  return `Chrome is running an older Jev bridge (v${bridge.protocol}; Jev speaks v${bridge.current}), so working in the background is off. In chrome://extensions, press Reload on "Jev bridge" — it loads from jev/dist/extension.`;
+  return `Chrome is running an older Jarvis bridge (v${bridge.protocol}; Jarvis speaks v${bridge.current}), so working in the background is off. In chrome://extensions, press Reload on "Jarvis bridge" — it loads from jev/dist/extension.`;
 }
 
 export function voicePill(voice: NonNullable<State["voice"]>): string {
@@ -121,7 +121,7 @@ export function voicePill(voice: NonNullable<State["voice"]>): string {
   return `🔊 ${voice.detail.split(" ")[0]}${voice.device ? ` → ${voice.device}` : ""}`;
 }
 
-/** The pill's tooltip: which voice, and where it comes out. Jev follows the Mac's output setting, so
+/** The pill's tooltip: which voice, and where it comes out. Jarvis follows the Mac's output setting, so
  *  "no sound in my headset" is answered by the device named here. */
 export function voiceTitle(voice: NonNullable<State["voice"]>): string {
   if (!voice.device) return voice.detail;

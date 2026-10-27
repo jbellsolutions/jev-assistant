@@ -75,8 +75,8 @@ export function trayIconPng(kind: TrayKind, size = 44): Buffer {
  *  (a Dock icon isn't template-tinted, so it needs real color, not just alpha) — a panel-blue
  *  ring on a dark background. Real branding is later polish; this just gets a real icon shipped. */
 export function appIconPng(size = 1024): Buffer {
-  const bg = [0x10, 0x14, 0x1b] as const; // matches the panel's own background color
-  const fg = [0x6d, 0x9e, 0xff] as const; // accent blue
+  const bg = [0x10, 0x0d, 0x1a] as const;
+  const fg = [0xb8, 0x9a, 0xff] as const;
   const alpha = trayAlpha("idle", size);
   const rgba = new Uint8Array(size * size * 4);
   for (let i = 0; i < alpha.length; i++) {
