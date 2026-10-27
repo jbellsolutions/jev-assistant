@@ -70,10 +70,11 @@ try {
     await page.getByLabel("Or give me a task").fill(`Approval fixture ${name}`);
     await page.getByRole("button", { name: "Give Jarvis this task" }).click();
     await page.getByRole("button", { name: /^Tasks/ }).click();
-    await page.getByRole("button", { name: "Allow once", exact: true }).waitFor();
+    const approvalTask = page.locator(".phone-task").filter({ has: page.getByRole("heading", { name: `Approval fixture ${name}`, exact: true }) });
+    await approvalTask.getByRole("button", { name: "Allow once", exact: true }).waitFor();
     await page.screenshot({ path: `${screenshots}/${name}-tasks.png`, fullPage: true });
-    await page.getByRole("button", { name: "Allow once", exact: true }).click();
-    await page.getByText("Synthetic approval: once", { exact: true }).waitFor({ state: "attached" });
+    await approvalTask.getByRole("button", { name: "Allow once", exact: true }).click();
+    await approvalTask.getByText("Synthetic approval: once", { exact: true }).waitFor({ state: "attached" });
     const maxScroll = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth); assert.ok(maxScroll <= 1, `Horizontal overflow: ${maxScroll}`);
     await page.reload(); await page.locator(".phone-connection.connected").waitFor();
     // Voice errors remain honest when this fixture has no provider credentials.
