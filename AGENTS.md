@@ -13,3 +13,7 @@ This is the canonical new project folder. Read README.md and docs/architecture.m
 - Use actual current SDK contracts. In LiveKit GPT-Live client delegation, registered function tools are ignored; handle delegation events in application code.
 - Claim voice verification only after a real microphone conversation. Distinguish automated checks, live service checks, and untested behavior in every handoff.
 - Do not treat legacy verification reports as current service status. The October 11 v12 notes say the old Jev browser VM was deleted.
+
+## Standing publication rule
+
+The owner explicitly authorized ongoing publication on October 27, 2026. For every completed Jev change in this project: run relevant checks and the credential scan, document findings and verification, commit and push the verified changes to the public `jbellsolutions/jev-assistant` repository. Runtime, UI, packaging or Chrome-extension changes also require a new versioned preview installer/extension release, updated download links and checksums. Verify the uploaded assets and CI. Do not silently replace an existing version. Never publish private settings, sessions, logs or user task content. Report any publishing/check failure plainly. This is a per-change completion rule, not an unattended file watcher or permission to publish unrelated work.

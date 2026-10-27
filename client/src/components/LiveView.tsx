@@ -30,12 +30,13 @@ interface Props {
 
 /** The streamed view of the controlled browser. Reports its own pixel size so the server
  *  sizes the real viewport to match (no CSS scaling); clicks are forwarded as fractions. */
-function useNow(ms: number): number {
+function useNow(ms: number, enabled: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
+    if (!enabled) return;
     const t = setInterval(() => setNow(Date.now()), ms);
     return () => clearInterval(t);
-  }, [ms]);
+  }, [ms, enabled]);
   return now;
 }
 
@@ -52,7 +53,7 @@ export function LiveView({ page, jevChrome = null, status, connected, send, fixe
   const zoom = zooms[view];
   const setZoom = (z: Zoom) => setZooms((all) => ({ ...all, [view]: z }));
   const [typing, setTyping] = useState(false);
-  const now = useNow(1000);
+  const now = useNow(1000, onScreen);
   const fresh = freshness(page, now);
 
   // Your windows are pictured only while this tab is showing: opening it asks for a picture now

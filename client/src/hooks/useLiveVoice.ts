@@ -9,6 +9,7 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
   const [state, setState] = useState<"off" | "connecting" | "on">("off");
   const [error, setError] = useState("");
   const [speaking, setSpeaking] = useState(false);
+  const [userSpeaking, setUserSpeaking] = useState(false);
   const [transcripts, setTranscripts] = useState<Array<{ id: string; who: string; text: string }>>([]);
   const roomRef = useRef<Room | null>(null);
   const serverRoom = useRef("");
@@ -22,13 +23,14 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
     generation.current++;
     const room = roomRef.current; roomRef.current = null;
     const name = serverRoom.current; serverRoom.current = "";
-    setState("off"); setSpeaking(false);
+    setState("off"); setSpeaking(false); setUserSpeaking(false);
     for (const el of audio.current) el.remove(); audio.current.clear();
     await room?.disconnect();
     if (name) await assistantFetch(transport, "/voice/end", { room: name }).catch(() => setError("Voice disconnected locally; verify the LiveKit room has ended."));
   }, [transport]);
   const start = useCallback(async () => {
-    if (inFlight.current || roomRef.current || paused) return;
+    if (inFlight.current) { setError("The previous connection is still closing. Try again in a moment."); return; }
+    if (roomRef.current || paused) return;
     const gen = ++generation.current;
     inFlight.current = true; setState("connecting"); setError(""); setTranscripts([]); hushFlag.current = false;
     try {
@@ -41,7 +43,11 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
         const element = track.attach(); element.muted = muteRef.current || hushFlag.current; element.style.display = "none"; document.body.append(element); audio.current.add(element);
       });
       room.on(RoomEvent.TrackUnsubscribed, (track) => { for (const el of track.detach()) { audio.current.delete(el); el.remove(); } });
-      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => setSpeaking(speakers.some((p) => p.identity !== room.localParticipant.identity)));
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        setSpeaking(speakers.some((p) => p.identity !== room.localParticipant.identity));
+        setUserSpeaking(speakers.some((p) => p.identity === room.localParticipant.identity));
+        if (speakers.length) lastActivity.current = Date.now();
+      });
       room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
         lastActivity.current = Date.now();
         const who = participant?.identity === room.localParticipant.identity ? "You" : "Jev";
@@ -68,9 +74,11 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
       await room.startAudio();
+      if (gen !== generation.current) return;
       await room.localParticipant.setMicrophoneEnabled(true);
+      if (gen !== generation.current) { await room.localParticipant.setMicrophoneEnabled(false); return; }
       lastActivity.current = Date.now(); setState("on");
-    } catch (e) { await stop(); setError(e instanceof Error ? e.message : "Voice could not connect"); }
+    } catch (e) { if (gen === generation.current) { await stop(); setError(e instanceof Error ? e.message : "Voice could not connect"); } }
     finally { inFlight.current = false; }
   }, [transport, target, paused, stop]);
   useEffect(() => { for (const el of audio.current) el.muted = muted || hushFlag.current; }, [muted]);
@@ -92,5 +100,5 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
     return () => { clearInterval(timer); void stop(); };
   }, [stop]);
   const hush = useCallback(() => { hushFlag.current = true; for (const el of audio.current) el.muted = true; setSpeaking(false); }, []);
-  return { state, error, speaking, transcripts, start, stop, hush };
+  return { state, error, speaking, userSpeaking, transcripts, start, stop, hush };
 }

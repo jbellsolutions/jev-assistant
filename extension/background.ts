@@ -15,6 +15,7 @@ const RECONNECT_MS = [1_000, 2_000, 5_000, 10_000];
 let socket: WebSocket | null = null;
 let attempts = 0;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Where the companion is. Saved settings win; otherwise config.json, which the build writes
  *  next to this file from the companion's own .env, so loading the folder is all the pairing
@@ -204,6 +205,7 @@ let connecting = false;
 
 async function connect(): Promise<void> {
   if (connecting || (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING))) return;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   connecting = true;
   try {
     await openBridge();
@@ -233,7 +235,10 @@ async function openBridge(): Promise<void> {
     return scheduleReconnect();
   }
   socket = ws;
+  const opening = setTimeout(() => { if (socket === ws && ws.readyState === WebSocket.CONNECTING) ws.close(); }, 5000);
   ws.onopen = async () => {
+    clearTimeout(opening);
+    if (socket !== ws) return ws.close();
     attempts = 0;
     send({ type: "hello", protocol: BRIDGE_PROTOCOL, agent: `jev-chrome-bridge/${chrome.runtime.getManifest().version}`, tab: info(await activeTab()) });
     void chrome.action.setBadgeText({ text: "on" });
@@ -241,12 +246,15 @@ async function openBridge(): Promise<void> {
     if (pingTimer) clearInterval(pingTimer);
     pingTimer = setInterval(() => send({ type: "pong" }), PING_MS); // traffic keeps the worker alive
   };
-  ws.onmessage = (ev) => void onMessage(String(ev.data));
+  ws.onmessage = (ev) => { if (socket === ws) void onMessage(String(ev.data)); };
   ws.onclose = () => {
-    if (socket === ws) socket = null;
+    clearTimeout(opening);
+    if (socket !== ws) return;
+    socket = null;
     if (pingTimer) clearInterval(pingTimer);
     pingTimer = null;
     void chrome.action.setBadgeText({ text: "" });
+    void chrome.action.setTitle({ title: "Jev bridge — reconnecting to Jev" });
     scheduleReconnect();
   };
   ws.onerror = () => ws.close();
@@ -259,7 +267,7 @@ async function bridgeReady(url: string, token: string): Promise<"ok" | "wrong" |
     probe.protocol = probe.protocol === "wss:" ? "https:" : "http:";
     probe.pathname = "/api/bridge-ready";
     probe.search = "";
-    const res = await fetch(probe, { headers: token ? { authorization: `Bearer ${token}` } : {}, cache: "no-store" });
+    const res = await fetch(probe, { headers: token ? { authorization: `Bearer ${token}` } : {}, cache: "no-store", signal: AbortSignal.timeout(2500) });
     if (!res.ok) return "ok"; // an older Jev without this route: let the socket try, as before
     const body = (await res.json()) as { token?: string };
     return body.token === "ok" || body.token === "wrong" || body.token === "unset" ? body.token : "down";
@@ -269,8 +277,9 @@ async function bridgeReady(url: string, token: string): Promise<"ok" | "wrong" |
 }
 
 function scheduleReconnect(): void {
+  if (reconnectTimer) return;
   const delay = RECONNECT_MS[Math.min(attempts++, RECONNECT_MS.length - 1)]!;
-  setTimeout(() => void connect(), delay);
+  reconnectTimer = setTimeout(() => { reconnectTimer = null; void connect(); }, delay);
 }
 
 async function announceTab(): Promise<void> {
@@ -288,6 +297,8 @@ chrome.tabs.onUpdated.addListener((_id, change, tab) => {
 chrome.storage.onChanged.addListener((_changes, area) => {
   // only the pairing settings (local) mean "reconnect"; Jev's window id lives in session storage
   if (area !== "local") return;
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+  if (pingTimer) { clearInterval(pingTimer); pingTimer = null; }
   socket?.close();
   socket = null;
   attempts = 0;

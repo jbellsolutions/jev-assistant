@@ -1,5 +1,15 @@
 # Phase 1 verification
 
+## October 27 stability update
+
+Version 1.0.1 adds desktop shutdown/reopen recovery, supervised voice-worker recovery, abandoned LiveKit room cleanup, Chrome reconnection fixes, and a lightweight gold voice orb above streaming transcripts. See [findings and changes](stability-1.0.1.md).
+
+Current checks: **896 tests in 73 files** passed, along with TypeScript and renderer builds. The expanded relocated installer-app smoke verifies cancellation during connection setup, renderer crash recovery, destroyed-window recreation, bounded native process exit, forced termination/relaunch, saved tasks, Chrome reconnection and a real local demo action. Disposable test profiles do not contain signed-in accounts.
+
+With the owner's existing settings, a synthetic spoken prompt connected through LiveKit/GPT-Live and produced non-silent return audio without capturing the physical microphone. A separate forced termination during a live session recovered after relaunch, preserved the saved-task count, stopped the old voice worker, and left zero LiveKit rooms. This is automated live-service evidence, not a new human microphone conversation or verification of all external task workflows.
+
+After correcting the SDK's idle-process defaults, a 15-second sample of the installed app plus its descendant processes measured approximately **4.2% of one CPU core with the screen preview visible**, and **2.2% of one core with the native window confirmed hidden**. There were two standalone Node processes (the voice supervisor's worker and the SDK's shared inference process), with no spare job processes. These are short idle measurements on the development Mac, excluding unrelated Chrome activity and the separately shared Cua Driver service; active calls/tasks and other machines will differ.
+
 The owner accepted the desktop experience on October 26, 2026 and reported that it worked well. This is owner feedback; no microphone recording is stored in this repository.
 
 ## Automated checks

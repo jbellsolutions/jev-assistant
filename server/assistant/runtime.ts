@@ -12,6 +12,7 @@ import { createRequestRouter } from "./router.js";
 import { AttachmentStore } from "../attachments.js";
 import { appConnections } from "./app-connections.js";
 import type { VoiceConnection } from "../../core/voice-connection.js";
+import { VoiceLeases } from "./voice-leases.js";
 
 export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Hands; chromeReady: () => boolean; computerReady: () => boolean }) {
   const env = opts.env;
@@ -23,7 +24,22 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
   const route = createRequestRouter(env);
   const apps = appConnections(env);
   const files = new AttachmentStore();
-  const voiceRooms = new Map<string, { connection: VoiceConnection; target: WorkTarget; expires: number; seen: Map<string, string>; requests: Map<string, Promise<{ message: string }>> }>();
+  const voiceRooms = new Map<string, { owner: string; createdAt: number; connection: VoiceConnection; target: WorkTarget; expires: number; seen: Map<string, string>; requests: Map<string, Promise<{ message: string }>> }>();
+  const leases = new VoiceLeases(env.JEV_HOME || path.join(homedir(), ".jev-assistant"));
+  const inheritedRooms = new Set(leases.list());
+  let recovery: Promise<void> | null = null;
+  let voiceCreating = false;
+  const roomClient = () => new RoomServiceClient(env.LIVEKIT_URL!.replace(/^ws/, "http"), env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, { requestTimeout: 4 });
+  const endRoom = async (room: string) => {
+    try { await roomClient().deleteRoom(room); }
+    catch (error) { if ((error as { code?: string }).code !== "not_found" && (error as { status?: number }).status !== 404) throw new Error("Could not confirm that the LiveKit room ended. Try End conversation again."); }
+    leases.remove(room); inheritedRooms.delete(room); voiceRooms.delete(room);
+  };
+  const recoverVoice = async () => {
+    if (!inheritedRooms.size || !env.LIVEKIT_URL || !env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET) return;
+    if (!recovery) recovery = (async () => { for (const room of [...inheritedRooms]) await endRoom(room); })().finally(() => { recovery = null; });
+    await recovery;
+  };
   let paused = false;
   let voiceWorker: AssistantStatus["voiceWorker"] = "off";
   let voiceError: string | undefined;
@@ -81,29 +97,41 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     }));
     api.get("/tasks/:id/live-view", (req, res) => res.json({ url: cloud.liveView(String(req.params.id)) ?? null }));
     api.post("/voice/token", handle(async (req, res) => {
+      if (voiceCreating) throw new Error("A voice conversation is already starting. Try again in a moment.");
+      voiceCreating = true;
+      try {
       if (paused) throw new Error("Resume Jev before connecting voice");
       if (!status().connections.openai || !status().connections.livekit) throw new Error("Add your OpenAI and LiveKit credentials in Connection settings, then restart Jev.");
       if (voiceWorker !== "running") throw new Error(voiceError || "The voice worker is starting. Try again in a moment.");
       if (!["local", "cloud", "orgo"].includes(req.body?.target)) throw new Error("Choose an environment first");
-      for (const [name, session] of voiceRooms) if (session.expires < Date.now()) voiceRooms.delete(name);
+      await recoverVoice();
+      for (const [name, session] of voiceRooms) {
+        if (session.connection.state === "failed" || session.expires < Date.now()) { await endRoom(name); continue; }
+        if (Date.now() - session.createdAt < 10000) continue;
+        try {
+          const participants = await roomClient().listParticipants(name);
+          if (!participants.some((p) => p.identity === session.owner)) await endRoom(name);
+        } catch (error) { if ((error as { code?: string }).code === "not_found") { leases.remove(name); voiceRooms.delete(name); } else throw new Error("Could not check the previous voice connection. Try again before starting another call."); }
+      }
       if (voiceRooms.size) throw new Error("End the other voice conversation before starting a new one");
       const room = `jev-${randomUUID()}`;
-      const token = new AccessToken(env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, { identity: `owner-${randomUUID()}`, ttl: "10m" });
+      const owner = `owner-${randomUUID()}`;
+      const token = new AccessToken(env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, { identity: owner, ttl: "10m" });
       token.addGrant({ room, roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true });
       const url = env.LIVEKIT_URL!;
       if (!/^wss?:\/\//.test(url)) throw new Error("LIVEKIT_URL must be a ws:// or wss:// server URL");
       const host = url.replace(/^ws/, "http");
-      voiceRooms.set(room, { connection: { state: "connecting" }, target: req.body.target, expires: Date.now() + 2 * 3600000, seen: new Map(), requests: new Map() });
-      try { await new AgentDispatchClient(host, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET).createDispatch(room, "jev-assistant"); }
-      catch { voiceRooms.delete(room); throw new Error("Could not dispatch the voice agent. Check LiveKit credentials and worker status."); }
+      leases.add(room);
+      voiceRooms.set(room, { owner, createdAt: Date.now(), connection: { state: "connecting" }, target: req.body.target, expires: Date.now() + 35 * 60000, seen: new Map(), requests: new Map() });
+      try { await new AgentDispatchClient(host, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, { requestTimeout: 4 }).createDispatch(room, "jev-assistant"); }
+      catch { voiceRooms.delete(room); inheritedRooms.add(room); await recoverVoice().catch(() => {}); throw new Error("Could not dispatch the voice agent. Check LiveKit credentials and worker status."); }
       res.json({ url, token: await token.toJwt(), room });
+      } finally { voiceCreating = false; }
     }));
     api.post("/voice/end", handle(async (req, res) => {
       const room = String(req.body?.room ?? "");
-      if (voiceRooms.has(room)) {
-        try { await new RoomServiceClient(env.LIVEKIT_URL!.replace(/^ws/, "http"), env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET).deleteRoom(room); }
-        catch (error) { if ((error as { code?: string }).code !== "not_found" && (error as { status?: number }).status !== 404) throw new Error("Could not confirm that the LiveKit room ended. Try End conversation again."); }
-        voiceRooms.delete(room);
+      if (voiceRooms.has(room) || inheritedRooms.has(room)) {
+        await endRoom(room);
       }
       res.json({ ok: true });
     }));
@@ -141,11 +169,11 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     });
     app.use("/assistant", api);
   }
-  return { queue, status, command, mount,
-    canRestart() { return !queue.list().some((t) => ["running", "queued", "waiting_for_user"].includes(t.status)) && ![...voiceRooms.values()].some((s) => s.expires > Date.now()); },
+  return { queue, status, command, mount, recoverVoice,
+    canRestart() { return !voiceCreating && !queue.list().some((t) => ["running", "queued", "waiting_for_user"].includes(t.status)) && ![...voiceRooms.values()].some((s) => s.expires > Date.now()); },
     setPaused(value: boolean) { paused = value; queue.setEnabled(!value); },
     setVoiceWorker(value: AssistantStatus["voiceWorker"], error?: string) { voiceWorker = value; voiceError = error; },
-    async close() { await queue.close(); },
+    async close() { await Promise.allSettled([queue.close(), ...[...voiceRooms.keys()].map(endRoom)]); },
   };
 }
 export type AssistantRuntime = ReturnType<typeof createAssistantRuntime>;

@@ -4,7 +4,7 @@ Jev is a desktop assistant you can talk to naturally. It can work in Chrome, on 
 
 ## Install
 
-1. Download **Jev-1.0.0-mac-arm64.pkg** from the [Phase 1 download page](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.0.0-preview.1).
+1. Download **Jev-1.0.1-mac-arm64.pkg** from the [download page](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.0.1-preview.1).
 2. Open the installer and follow the Mac's instructions. It installs **Jev** and **Cua Driver**, the helper for Mac control, in Applications. No coding tools or terminal are needed.
 3. Open **Jev** from Applications.
 
@@ -45,6 +45,8 @@ Microphone permission is requested when starting a working live conversation. Th
 
 Click **Talk to Jev**. Speak naturally and interrupt when you need to. There is no recording to submit and no Send button for voice. **End conversation** closes audio; saved tasks continue while this Mac remains awake and Jev is running.
 
+The gold orb shows when Jev is connecting, listening, hearing you or speaking. Streaming transcripts stay underneath it. You can cancel while connecting. Hiding the window pauses the animation; an active conversation continues.
+
 Choose **My computer**, **Cloud browser**, or **Co-founder's computer**. Jev does not silently switch computers when one is unavailable.
 
 Use **↗ Resize** for a large workspace or compact panel. You can drag window edges too; Jev remembers the size. **Option+Space** shows or hides it.
@@ -54,9 +56,9 @@ For app tools, add Composio, restart, then choose **Refresh connected apps → C
 ## If something doesn't work
 
 - **No API credit available:** add credit to the OpenAI project associated with your key, or replace the key. A ChatGPT subscription does not supply API credit.
-- **Chrome not connected:** reload the extension and make sure Jev is open.
+- **Chrome not connected:** make sure Jev is open; the extension retries automatically. After installing an update, reload the Jev extension once in Chrome's Extensions page. If an old copy was loaded from another folder, remove that copy and load the folder opened by **Show Chrome extension**.
 - **Mac not connected:** check Cua Driver's permissions, then restart Jev.
 - **Multiple connected app accounts:** use a Composio user ID with the intended single active account for each app. Jev refuses to guess the identity.
-- **Update:** quit Jev, run the newer installer, and reopen it. Settings and tasks stay in your home folder.
+- **Update:** quit Jev, run the newer installer, and reopen it. Settings and tasks stay in your home folder. Reload the Jev extension once to use its new code. This preview has manual app updates.
 
 For iPhone, see [Phone access](phone.md). This Mac installer does not create a phone-access URL.

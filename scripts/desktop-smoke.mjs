@@ -20,9 +20,10 @@ const executablePath = process.env.JEV_SMOKE_EXECUTABLE;
 const launchOptions = { ...(executablePath ? { executablePath } : {}), args: [`--user-data-dir=${path.join(home, "electron")}`, ...(executablePath ? [] : [root])], env };
 try {
   desktop = await _electron.launch(launchOptions);
-  const page = await desktop.firstWindow();
+  let page = await desktop.firstWindow();
   const errors = []; page.on("pageerror", (e) => errors.push(e.message));
   await page.getByText("At your service", { exact: true }).waitFor();
+  await page.getByRole("img", { name: "Ready to talk", exact: true }).waitFor();
   await page.getByText("Connection settings", { exact: true }).click();
   await page.getByRole("button", { name: "Edit connections", exact: true }).click();
   await page.getByRole("dialog", { name: "Your connections" }).waitFor();
@@ -36,6 +37,18 @@ try {
   assert.equal(await page.getByRole("combobox", { name: "Work environment" }).inputValue(), "local");
   await page.getByRole("button", { name: "Talk to Jev", exact: true }).click();
   await page.getByText(/Add your OpenAI and LiveKit credentials/).waitFor();
+  let releaseToken;
+  let cancelledRoom = false;
+  const delayedToken = new Promise((resolve) => { releaseToken = resolve; });
+  await page.route("**/assistant/voice/token", async (route) => { await delayedToken; await route.fulfill({ json: { url: "wss://unused.invalid", token: "unused", room: "cancelled-test-call" } }); });
+  await page.route("**/assistant/voice/end", async (route) => { cancelledRoom = route.request().postDataJSON().room === "cancelled-test-call"; await route.fulfill({ json: { ok: true } }); });
+  await page.getByRole("button", { name: "Talk to Jev", exact: true }).click();
+  await page.getByRole("button", { name: "Cancel connection", exact: true }).click();
+  releaseToken();
+  await wait(() => cancelledRoom);
+  await page.getByRole("button", { name: "Talk to Jev", exact: true }).waitFor();
+  await page.unroute("**/assistant/voice/token"); await page.unroute("**/assistant/voice/end");
+  console.log("PASS: cancelling a pending voice connection releases its late room without opening a microphone.");
   await page.getByRole("textbox", { name: "Type a message" }).fill("Inspect a local task without connected accounts");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await page.getByText(/Connect your OpenAI API key in Settings/).waitFor();
@@ -60,13 +73,52 @@ try {
   const out = path.join(root, "scratch", "verification"); mkdirSync(out, { recursive: true });
   await page.screenshot({ path: path.join(out, "desktop.png") });
   console.log("PASS: Private connection editor saves; no legacy transcription microphone; Electron opens; task is saved; real extension connects and clicks Pricing; no renderer exceptions.");
-  await chrome.close(); chrome = undefined;
-  await desktop.close(); desktop = undefined;
+  await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].hide());
+  await page.locator(".voice-orb-wrap.paused").waitFor({ state: "attached" });
+  await desktop.evaluate(({ app }) => app.emit("activate"));
+  await page.locator(".voice-orb-wrap:not(.paused)").waitFor({ state: "attached" });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  assert.equal(await page.locator(".voice-orb").evaluate((el) => getComputedStyle(el).animationName), "none");
+  console.log("PASS: orb is above the voice controls, pauses when hidden, and respects reduced motion.");
+  await desktop.evaluate(({ BrowserWindow }) => new Promise((resolve) => {
+    const wc = BrowserWindow.getAllWindows()[0].webContents;
+    wc.once("render-process-gone", () => resolve(true)); wc.forcefullyCrashRenderer();
+  }));
+  // Playwright intentionally marks a crashed Page unusable. Check the recovered document
+  // from Electron, then recreate the window below to obtain a fresh automation target.
+  await wait(() => desktop.evaluate(async ({ BrowserWindow }) => {
+    const wc = BrowserWindow.getAllWindows()[0].webContents;
+    if (wc.isLoading()) return false;
+    return wc.executeJavaScript("document.body.innerText.includes('At your service') && document.body.innerText.includes('Inspect a local task without connected accounts')").catch(() => false);
+  }));
+  console.log("PASS: crashed renderer reloads without losing saved work.");
+  const recreated = desktop.waitForEvent("window");
+  await desktop.evaluate(({ app, BrowserWindow }) => { BrowserWindow.getAllWindows()[0].destroy(); app.emit("second-instance", {}, [], ""); });
+  page = await recreated;
+  await page.getByText("At your service", { exact: true }).waitFor();
+  console.log("PASS: reopening Jev recreates a destroyed native window instead of throwing a tray exception.");
+  const quitting = desktop.process();
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("Jev did not exit within its shutdown deadline")), 11000);
+    quitting.once("exit", (code) => { clearTimeout(timeout); code === 0 ? resolve() : reject(new Error(`Unexpected shutdown exit ${code}`)); });
+    quitting.kill("SIGTERM");
+  });
+  desktop = undefined;
+  console.log("PASS: normal quit exits the native process and releases its single-instance lock within the deadline.");
   desktop = await _electron.launch(launchOptions);
   const restored = await desktop.firstWindow();
   await restored.getByText("Inspect a local task without connected accounts", { exact: true }).waitFor();
   assert.equal((await get("/assistant/status")).tasks.length, 1);
-  console.log("PASS: saved task survives a full Electron restart.");
+  await wait(async () => (await get("/assistant/status")).connections.chrome);
+  console.log("PASS: saved task survives a full Electron restart; Chrome reconnects without reloading the extension.");
+  const killed = desktop.process(); const exited = new Promise((resolve) => killed.once("exit", resolve));
+  killed.kill("SIGKILL"); await exited; desktop = undefined;
+  desktop = await _electron.launch(launchOptions);
+  const afterKill = await desktop.firstWindow();
+  await afterKill.getByText("Inspect a local task without connected accounts", { exact: true }).waitFor();
+  await wait(async () => (await get("/assistant/status")).connections.chrome);
+  assert.equal((await get("/assistant/status")).tasks.length, 1);
+  console.log("PASS: forced application termination permits a clean relaunch, preserves saved work and reconnects Chrome.");
 } finally {
   await chrome?.close(); await desktop?.close(); rmSync(home, { recursive: true, force: true });
 }

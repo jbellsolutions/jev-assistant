@@ -24,6 +24,7 @@ jobs:
       - run: npm run build:keys && npm run build:audio-out
       - run: npm run check
       - run: npm run release:mac
+      - run: npm run smoke:package
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: Jev-mac-arm64-unsigned-preview

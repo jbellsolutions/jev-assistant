@@ -8,7 +8,7 @@ export async function assistantFetch<T>(transport: Transport, route: string, bod
   if (!res.ok) throw new Error(data.error || "Jev could not handle that request");
   return data;
 }
-export function useAssistant(transport: Transport) {
+export function useAssistant(transport: Transport, visible = true) {
   const [status, setStatus] = useState<AssistantStatus | null>(null);
   const [error, setError] = useState("");
   const active = useRef(false);
@@ -19,6 +19,6 @@ export function useAssistant(transport: Transport) {
     catch (e) { setError(e instanceof Error ? e.message : "Companion disconnected"); }
     finally { active.current = false; }
   }, [transport]);
-  useEffect(() => { void refresh(); const timer = setInterval(() => void refresh(), 1500); return () => clearInterval(timer); }, [refresh]);
+  useEffect(() => { void refresh(); const timer = setInterval(() => void refresh(), visible ? 1500 : 10000); return () => clearInterval(timer); }, [refresh, visible]);
   return { status, error, refresh };
 }

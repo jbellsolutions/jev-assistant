@@ -70,6 +70,7 @@ function runEscape() {
 }
 
 function applyEffects(effects: ReturnType<typeof onHotkey>["effects"]) {
+  if (quitting) return;
   for (const e of effects) {
     switch (e) {
       case "show":
@@ -100,6 +101,7 @@ function applyEffects(effects: ReturnType<typeof onHotkey>["effects"]) {
 let setPaused: (paused: boolean) => void = () => {};
 
 function refreshTray() {
+  if (quitting || !tray || tray.isDestroyed()) return;
   tray?.setImage(icon(panel.paused ? "paused" : panel.busy ? "busy" : "idle"));
   tray?.setToolTip(panel.paused ? "Jev — paused (⌥Space or the menu to resume)" : panel.busy ? "Jev — working (Esc to stop)" : `Jev — ${HOTKEY.replace("Alt", "⌥").replace("+", "")} to show`);
   tray?.setContextMenu(buildTrayMenu());
@@ -112,7 +114,8 @@ function placeBottomRight(w: BrowserWindow) {
 }
 
 function showPanel() {
-  if (!win) return;
+  if (quitting || !baseUrl) return;
+  if (!win || win.isDestroyed()) win = createWindow();
   if (!win.isVisible()) placeBottomRight(win);
   win.show();
   panel = onWindowVisibility(panel, true);
@@ -144,6 +147,11 @@ function createWindow(): BrowserWindow {
       additionalArguments: [`--jev-base-url=${baseUrl}`],
     },
   });
+  w.on("closed", () => { if (win === w) win = null; });
+  let rendererRestarts = 0;
+  w.webContents.on("render-process-gone", () => {
+    if (!quitting && !w.isDestroyed() && rendererRestarts++ < 3) void w.loadURL(`${baseUrl}/?mode=desktop`);
+  });
   // renderer console → our stdout, so `electron .` logs tell the whole story
   w.webContents.on("console-message", (ev) => {
     const level = ev.level === "error" ? "ERR" : ev.level === "warning" ? "WARN" : "LOG";
@@ -166,16 +174,16 @@ function createWindow(): BrowserWindow {
     }
   });
   // backgroundThrottling is off, so the page itself always reports "visible": say it from here.
-  w.on("hide", () => {
-    panel = onWindowVisibility(panel, false);
+  const visibility = (visible: boolean) => {
+    if (quitting || w.isDestroyed()) return;
+    panel = onWindowVisibility(panel, visible);
     refreshTray();
-    w.webContents.send("jev:visible", false);
-  });
-  w.on("show", () => {
-    panel = onWindowVisibility(panel, true);
-    refreshTray();
-    w.webContents.send("jev:visible", true);
-  });
+    w.webContents.send("jev:visible", visible);
+  };
+  w.on("hide", () => visibility(false));
+  w.on("minimize", () => visibility(false));
+  w.on("show", () => visibility(!w.isMinimized()));
+  w.on("restore", () => visibility(true));
   // The panel never leaves the companion: a file dropped outside the drop zone would otherwise
   // replace the whole panel with file:///…pdf.
   w.webContents.on("will-navigate", (e, url) => {
@@ -260,6 +268,7 @@ async function main() {
   else console.log("brain: none (set OPENROUTER_API_KEY)");
   const port = await companion.listen(PORT);
   baseUrl = `http://127.0.0.1:${port}`;
+  void assistant.recoverVoice().catch(() => {});
   const voiceProcess = startVoiceProcess(root, baseUrl, assistant);
   app.on("before-quit", () => voiceProcess.stop());
   assistant.queue.start();
@@ -272,7 +281,6 @@ async function main() {
     announce: companion.announce,
     log: (l) => console.log(l),
   });
-  app.on("before-quit", () => void cofounderAccess?.close());
   // Chrome not connected: open pages visibly in his default browser rather than in a hidden one
   const system = new SystemBrowser();
 
@@ -295,6 +303,7 @@ async function main() {
   });
 
   win = createWindow();
+  app.on("activate", () => showPanel());
   tray = new Tray(icon("idle"));
   setPaused = (paused) => companion.hub.setPaused(paused);
   companion.hub.onPause((paused) => {
@@ -335,7 +344,12 @@ async function main() {
         : []),
       { label: "Quit Jev", click: () => app.quit() },
     ]);
-  tray.on("click", () => (win?.isVisible() ? win.hide() : showPanel()));
+  tray.on("click", () => {
+    const current = win;
+    if (quitting) return;
+    if (!current || current.isDestroyed()) { showPanel(); return; }
+    if (current.isVisible()) current.hide(); else showPanel();
+  });
   refreshTray();
 
   ipcMain.on("jev:busy", (_e, busy: boolean) => {
@@ -346,7 +360,7 @@ async function main() {
     panel = onRendererSpeaking(panel, !!speaking);
   });
   ipcMain.on("jev:hide", () => runEscape());
-  ipcMain.handle("jev:is-visible", () => win?.isVisible() ?? false);
+  ipcMain.handle("jev:is-visible", () => !!win && !win.isDestroyed() && win.isVisible() && !win.isMinimized());
   const ownSettings = (event: Electron.IpcMainInvokeEvent) => {
     if (!win || event.sender !== win.webContents || event.senderFrame?.url !== `${baseUrl}/?mode=desktop`) throw new Error("Settings are available only in the Jev desktop panel");
   };
@@ -407,16 +421,21 @@ async function main() {
   console.log(`Jev desktop → ${baseUrl}  hotkey ${HOTKEY}${envKeys.length ? `  (.env: ${envKeys.length} keys)` : ""}`);
 
   let shutdownStarted = false;
-  let shutdownFinished = false;
   app.on("before-quit", (event) => {
-    if (shutdownFinished) return;
     event.preventDefault();
     if (shutdownStarted) return;
     shutdownStarted = true;
     quitting = true;
+    // Ignore late tray/renderer events before asynchronous cleanup destroys native objects.
+    if (tray && !tray.isDestroyed()) { tray.removeAllListeners(); tray.destroy(); }
+    tray = null;
     globalShortcut.unregisterAll();
     voiceProcess.stop();
-    void companion.close().finally(() => { shutdownFinished = true; app.quit(); });
+    const deadline = setTimeout(() => app.exit(0), 8000);
+    deadline.unref();
+    // A second app.quit() can leave macOS's original quit sequence half-finished.
+    // Cleanup is complete here; exit explicitly so the single-instance lock is released.
+    void Promise.allSettled([companion.close(), cofounderAccess?.close()]).finally(() => { clearTimeout(deadline); app.exit(0); });
   });
 }
 

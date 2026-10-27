@@ -4,7 +4,7 @@ A voice assistant that can work in Chrome, on your Mac, in its own cloud browser
 
 ## Download and install
 
-**[Download the Mac installer](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.0.0-preview.1)** · **[Start here](docs/start-here.md)**
+**[Download the Mac installer](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.0.1-preview.1)** · **[Start here](docs/start-here.md)**
 
 Open the `.pkg`, follow the Mac installer, and launch Jev from Applications. It includes the Mac-control helper. End users do not need Node, Python, a terminal or coding tools.
 
@@ -15,6 +15,7 @@ Bring your own OpenAI, LiveKit, TypeSafe and Browser Use connections. Orgo and C
 ## What you can do
 
 - Start a continuous conversation with **Talk to Jev**, interrupt naturally, and end it without cancelling tasks.
+- See a gold voice orb react to the conversation, with streaming transcripts underneath. The visual pauses when hidden.
 - Give multi-step tasks and see saved progress, results, approvals, pause/resume and corrections.
 - Choose **My computer**, **Cloud browser**, or **Co-founder's computer** explicitly.
 - Use your Chrome login sessions through the extension, or an independent Browser Use Cloud browser.
@@ -22,6 +23,8 @@ Bring your own OpenAI, LiveKit, TypeSafe and Browser Use connections. Orgo and C
 - Switch between a larger workspace and compact panel with **↗ Resize**. Your window size is remembered.
 
 Local work requires this Mac to remain awake with Jev running. Task completion is a worker result with evidence to review, not a guarantee of arbitrary external outcomes.
+
+Already installed? Quit Jev, install the newer preview, then reopen it. Your settings and tasks are preserved. Reload the Jev extension once in Chrome's Extensions page to activate its updated code. See [1.0.1 stability fixes](docs/stability-1.0.1.md).
 
 ## iPhone
 

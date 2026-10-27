@@ -275,6 +275,22 @@ body.desktop .pane-tabs button { padding: 3px 8px; }
 .connection-strip { display: flex; gap: 12px; flex-wrap: wrap; }
 .connection-strip .ready { color: var(--accent-2); }
 .live-voice { display: flex; flex-direction: column; gap: 6px; }
+.voice-orb-wrap { position: relative; height: 124px; display: grid; place-items: center; padding-bottom: 22px; contain: layout paint; }
+.voice-orb { position: relative; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 30% 25%, #fff4d6 0%, #e8c27a 25%, #996328 57%, #291b11 85%); border: 1px solid #f5d79c; box-shadow: inset -8px -10px 12px #170d0480, 0 0 16px #d3a14e30; transform: scale(.92); }
+.voice-orb span { position: absolute; inset: 9px; border-radius: 50%; border: 1px solid #fff0c650; border-right-color: transparent; transform: rotate(-25deg); }
+.voice-orb-ring { position: absolute; width: 92px; height: 92px; margin-top: -22px; border: 1px solid #cda46050; border-radius: 50%; opacity: .5; }
+.voice-orb-label { position: absolute; bottom: 6px; color: #cfbb94; font-size: 12px; }
+.voice-orb-wrap.idle .voice-orb { opacity: .6; }
+.voice-orb-wrap.connecting .voice-orb { animation: jev-orb-breathe 1.8s ease-in-out infinite; }
+.voice-orb-wrap.listening .voice-orb { animation: jev-orb-breathe 3s ease-in-out infinite; }
+.voice-orb-wrap.hearing .voice-orb, .voice-orb-wrap.speaking .voice-orb { animation: jev-orb-speak .65s ease-in-out infinite alternate; }
+.voice-orb-wrap.hearing .voice-orb-ring, .voice-orb-wrap.speaking .voice-orb-ring { animation: jev-orb-ring 1.3s ease-out infinite; }
+.voice-orb-wrap.speaking .voice-orb { background: radial-gradient(circle at 30% 25%, #fff8e8, #f2ce88 28%, #ad7b38 62%, #332216); }
+.voice-orb-wrap.paused *, .voice-orb-wrap.paused *::before, .voice-orb-wrap.paused *::after { animation-play-state: paused !important; }
+@keyframes jev-orb-breathe { 0%,100% { transform: scale(.92); opacity: .75; } 50% { transform: scale(1); opacity: 1; } }
+@keyframes jev-orb-speak { from { transform: scale(.94); } to { transform: scale(1.08); } }
+@keyframes jev-orb-ring { from { transform: scale(.85); opacity: .7; } to { transform: scale(1.13); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .voice-orb-wrap * { animation: none !important; } }
 .live-talk { border: 1px solid #b39554; border-radius: 8px; background: #332c1d; color: #f5dba3; padding: 10px; cursor: pointer; font-weight: 600; }
 .live-voice.on .live-talk { border-color: var(--accent-2); background: #153025; color: #8cf0b5; }
 .assistant-error { color: var(--warn); margin: 0; font-size: 12px; }

@@ -6,10 +6,12 @@ import type { useLiveVoice } from "../hooks/useLiveVoice.ts";
 import { WORK_TARGET_LABELS } from "../../../core/assistant.ts";
 import { ConnectionEditor } from "./ConnectionEditor.tsx";
 import { ConnectedApps } from "./ConnectedApps.tsx";
+import { VoiceOrb } from "./VoiceOrb.tsx";
 
-export function AssistantPanel({ status, error, target, onTarget, voice, transport, refresh, quick, onQuick }: {
+export function AssistantPanel({ status, error, target, onTarget, voice, transport, refresh, quick, onQuick, onScreen = true }: {
   status: AssistantStatus | null; error: string; target: WorkTarget; onTarget(v: WorkTarget): void;
   voice: ReturnType<typeof useLiveVoice>; transport: Transport; refresh(): Promise<void>; quick: boolean; onQuick(v: boolean): void;
+  onScreen?: boolean;
 }) {
   const [actionError, setActionError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,7 +36,8 @@ export function AssistantPanel({ status, error, target, onTarget, voice, transpo
     </label>
     <div className="connection-strip"><span className={c?.chrome ? "ready" : ""}>Chrome {c?.chrome ? "connected" : "not connected"}</span><span className={c?.computer ? "ready" : ""}>Mac {c?.computer ? "connected" : "not connected"}</span></div>
     <div className={`live-voice ${voice.state}`}>
-      <button className="live-talk" type="button" disabled={voice.state === "connecting"} onClick={() => void (voice.state === "on" ? voice.stop() : voice.start())}>{voice.state === "connecting" ? "Connecting…" : voice.state === "on" ? "End conversation" : "Talk to Jev"}</button>
+      <VoiceOrb state={voice.state} speaking={voice.speaking} userSpeaking={voice.userSpeaking} visible={onScreen} />
+      <button className="live-talk" type="button" onClick={() => void (voice.state === "off" ? voice.start() : voice.stop())}>{voice.state === "connecting" ? "Cancel connection" : voice.state === "on" ? "End conversation" : "Talk to Jev"}</button>
       <span>{voice.state === "on" ? "Live conversation · speak and interrupt naturally" : voice.state === "connecting" ? "Connecting LiveKit and GPT-Live…" : "Two-way live voice · no recording or Send button"}</span>
     </div>
     {voice.transcripts.length > 0 && <div className="voice-transcript" aria-live="polite">{voice.transcripts.slice(-3).map((t) => <p key={t.id}><b>{t.who}:</b> {t.text}</p>)}</div>}

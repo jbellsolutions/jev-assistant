@@ -42,7 +42,8 @@ export function App() {
     }
   }, [state.entries]);
   const transport = useMemo(() => detectTransport(), []);
-  const assistant = useAssistant(transport);
+  const [onScreen, setOnScreen] = useState(true);
+  const assistant = useAssistant(transport, onScreen);
   const [target, setTarget] = useState<WorkTarget>("local");
   const [quick, setQuick] = useState(false);
   const liveVoice = useLiveVoice(transport, target, state.paused, state.voice?.muted ?? false);
@@ -170,7 +171,6 @@ export function App() {
   }, [desktop, busy]);
   // Whether the panel is on screen at all. The desktop shell says (its page always reports
   // "visible"); a browser tab has the page's own visibility.
-  const [onScreen, setOnScreen] = useState(true);
   useEffect(() => {
     if (desktop) return window.jev?.onVisible?.(setOnScreen);
     const sync = () => setOnScreen(document.visibilityState === "visible");
@@ -223,7 +223,7 @@ export function App() {
         />
         {desktop && <PaneDivider height={paneHeight} onHeight={setPaneHeight} />}
         <aside className="control-pane">
-          <AssistantPanel status={assistant.status} error={assistant.error} target={target} onTarget={setTarget} voice={liveVoice} transport={transport} refresh={assistant.refresh} quick={quick} onQuick={setQuick} />
+          <AssistantPanel status={assistant.status} error={assistant.error} target={target} onTarget={setTarget} voice={liveVoice} transport={transport} refresh={assistant.refresh} quick={quick} onQuick={setQuick} onScreen={onScreen} />
           {state.pane.tab === "cofounder" && state.cofounder && "computer" in state.cofounder && (
             <CofounderChat history={state.cofounderHistory} send={send} visible={onScreen} connected={state.connected} />
           )}
