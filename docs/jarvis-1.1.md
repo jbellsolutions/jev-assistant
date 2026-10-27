@@ -10,7 +10,7 @@ The Permissions panel can remember Slack sends, email sends/replies and ClickUp 
 
 ## Workspace
 
-The interface and orb use purple. The chat is wider by default, with a larger message box. Drag the browser/chat divider or voice/conversation divider to adjust prominence; use arrow keys on a focused divider or double-click to reset. Sizes survive a restart.
+The interface and orb use purple. The chat is wider by default, with a larger message box. Drag the browser/chat divider or voice/conversation divider to adjust prominence; use arrow keys on a focused divider or double-click to reset. Sizes survive a restart. Version 1.1.1 also keeps the divider movement consistent when a smaller display limits the pane height.
 
 Chrome-only live-screen input now carries normalized click coordinates and focused text/keys. Previously, a direct Chrome connection could convert a picture click using a fixed viewport and silently ignore typing. Manual input is ordered independently of agent work so a typed batch reaches the field before Enter.
 
@@ -24,6 +24,6 @@ Old queued conversation fragments now restart paused for review. Explicit correc
 
 ## Upgrade
 
-Install Jarvis-1.1.0-mac-arm64.pkg and open Jarvis from Applications. The former Jev bundle is preserved outside Applications, and private settings, tasks, pairing and the desktop chat profile remain in their existing locations. The bundled Chrome bridge is 0.4.0; existing users reload their unpacked extension once.
+Install Jarvis-1.1.1-mac-arm64.pkg and open Jarvis from Applications. The former Jev bundle is preserved outside Applications, and private settings, tasks, pairing and the desktop chat profile remain in their existing locations. The bundled Chrome bridge is 0.4.0; existing users reload their unpacked extension once.
 
 This remains an unsigned Apple Silicon/macOS 15+ preview. API providers, privacy grants, internet access and account permissions remain user supplied. See the current verification report for automated, live-service and human-test boundaries.

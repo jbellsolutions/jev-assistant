@@ -85,16 +85,22 @@ try {
   await page.locator(".screen").pressSequentially("manual check"); await page.locator(".screen").press("Enter");
   await wait(async () => tab.url().includes("q=manual+check"));
   console.log("PASS: typing and Enter in the live picture reach Chrome's focused field in order.");
+  await desktop.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setContentSize(1080, 600));
   const workspace = page.getByRole("separator", { name: "Resize browser and chat", exact: true });
   const detail = page.getByRole("separator", { name: "Resize voice and conversation", exact: true });
   const originalWidth = (await page.locator(".control-pane").boundingBox()).width;
   await workspace.focus(); await workspace.press("ArrowLeft");
-  assert.ok((await page.locator(".control-pane").boundingBox()).width > originalWidth + 15);
+  await wait(async () => (await page.locator(".control-pane").boundingBox()).width > originalWidth + 15);
   const originalHeight = (await page.locator(".assistant-area").boundingBox()).height;
-  await detail.focus(); await detail.press("ArrowDown");
-  assert.ok((await page.locator(".assistant-area").boundingBox()).height > originalHeight + 15);
+  // Shrink first: a smaller runner display may already be at the upper bound.
+  await detail.focus(); await detail.press("ArrowUp");
+  await wait(async () => (await page.locator(".assistant-area").boundingBox()).height < originalHeight - 15);
   await page.reload(); await page.getByText("At your service", { exact: true }).waitFor();
-  assert.ok((await page.locator(".control-pane").boundingBox()).width > originalWidth + 15);
+  await wait(async () => (await page.locator(".control-pane").boundingBox()).width > originalWidth + 15);
+  await wait(async () => (await page.locator(".assistant-area").boundingBox()).height < originalHeight - 15);
+  const smallerHeight = (await page.locator(".assistant-area").boundingBox()).height;
+  await detail.focus(); await detail.press("ArrowDown");
+  await wait(async () => (await page.locator(".assistant-area").boundingBox()).height > smallerHeight + 15);
   await workspace.dblclick(); await detail.dblclick();
   console.log("PASS: both workspace dividers resize their panels, remember sizes across reload and reset on double-click.");
   await page.getByRole("tab", { name: "Jarvis's browser", exact: true }).click();
