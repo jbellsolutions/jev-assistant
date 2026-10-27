@@ -4,7 +4,7 @@ Formerly Jev. A voice assistant that can work in Chrome, on your Mac, in its own
 
 ## Download and install
 
-**[Download the Mac installer](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.2.0-preview.1)** · **[Start here](docs/start-here.md)**
+**[Download the Mac installer](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.2.1-preview.1)** · **[Start here](docs/start-here.md)**
 
 Open the `.pkg`, follow the Mac installer, and launch Jarvis from Applications. It includes the Mac-control helper. End users do not need Node, Python, a terminal or coding tools.
 

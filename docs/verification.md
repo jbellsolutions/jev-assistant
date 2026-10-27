@@ -10,6 +10,8 @@ The relocated 1.2.0 package smoke passed: phone configuration/code presentation/
 
 The first GitHub 1.2 run passed all 916 tests and the Chromium phone check, then exposed an ambiguous WebKit smoke assertion: both browser runs shared the queue, so an unscoped approval-result locator could match the prior task as well. The smoke now scopes both the approval and its result to the current task card. This also prevents accepting the prior browser's result prematurely. The failed CI run remains visible; it is not counted as a pass. This correction changes the test only, not the published 1.2.0 application or download checksums.
 
+Final WebKit visual inspection also found a 23-pixel work-environment selector. Version 1.2.1 explicitly replaces the native menu appearance with a 48-pixel control and adds a browser geometry assertion for a minimum 44-pixel touch target. It is published as a new preview; the original 1.2.0 assets and checksums are preserved.
+
 These checks do not constitute physical iPhone microphone, audio, interruption, cellular reconnect or background behavior verification. The phone shares the existing LiveKit path; a human conversation on real iPhone hardware remains required. The desktop retains its unsigned Apple Silicon/macOS 15+ preview status. HTTPS tunnel ownership/access and an awake Mac are prerequisites. [Setup, architecture and limits](phone.md).
 
 ## Jarvis 1.1 update

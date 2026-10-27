@@ -60,6 +60,7 @@ try {
     try { await page.locator(".phone-connection.connected").waitFor(); }
     catch (e) { console.log((await page.locator("body").innerText()).slice(0, 2000)); await page.screenshot({ path: `${screenshots}/${name}-failure.png`, fullPage: true }); throw e; }
     assert.ok((await context.cookies()).some((c) => c.name === "__Host-jarvis-phone" && c.httpOnly && c.secure));
+    assert.ok((await page.getByLabel("Work environment").boundingBox()).height >= 44, "Work environment must have an iPhone-sized touch target");
     await page.screenshot({ path: `${screenshots}/${name}-talk.png`, fullPage: true });
     for (const target of ["cloud", "local"]) {
       await page.getByLabel("Work environment").selectOption(target);
