@@ -1,5 +1,17 @@
 # Phase 1 verification
 
+## Jarvis 1.3 Mac access from the phone
+
+The release checks cover **926 tests in 77 files**, TypeScript and the renderer build. New coverage includes per-device Mac picture/input isolation, stale frames, duplicate input IDs, invalid coordinates/keys, revocation during capture, manual takeover blocking, unique capture files, explicit foreground manual delivery, screenshot model output and actual voice environment updates. The local worker checks the Mac before answering local requests and masks credential-like text in that preflight observation.
+
+The Chromium/WebKit phone smoke passed through a real HTTPS proxy with synthetic Mac pictures and manual text/key input, plus the existing cloud/local task, approval, reload and revocation checks. These browser checks use disposable profiles and do not act in the owner's apps.
+
+Separately, an owner-authorized real-machine check paired an iPhone-shaped browser through HTTPS, captured an actual disposable TextEdit window, typed a nonce through the phone routes and independently verified it in the Mac accessibility tree. Its real Luna worker opened Slack, inspected it with an actual screenshot and read a separately generated file proof. No Slack message was sent. The initial background manual-input attempts did not change the test document, despite a returned attempt result; that failure led to the explicit foreground phone-control path. One file-proof assertion initially used a string that the existing secret detector correctly redacted; the proof now uses an unambiguous UUID, without weakening credential masking. The live checks run sequentially because they share the physical Mac.
+
+A synthetic microphone test connected through LiveKit/GPT-Live, delegated a natural spoken Mac request to the real local worker, inspected Slack and received non-silent voice audio. Test room deletion was independently confirmed after allowing for service propagation. This used generated audio, not a physical microphone or an iPhone. It establishes the voice-to-Mac execution path; physical iPhone foreground audio, interruption and reconnect still require a human check.
+
+The Mac picture is a periodically refreshed app window. Manual control requires a fresh paired-device frame and waits for active Mac execution to settle. It does not promise a full desktop video stream, operation of a sleeping/locked Mac, or arbitrary external outcomes. Tailscale remains the verified private transport; the missing application access was not repaired by changing tunnel vendors. See [1.3 changes](jarvis-1.3.md).
+
 ## Jarvis 1.2 iPhone companion
 
 **916 tests in 76 files** passed, plus TypeScript and the renderer build. Seven new gateway tests cover one-use pairing, private hashed-cookie persistence, device/code expiry, bounded guesses, revocation, HTTPS-origin checks, excluded control/settings/worker routes, shared cloud/Mac tasks, duplicate request IDs, logout and the desktop management boundary.

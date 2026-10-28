@@ -5,6 +5,7 @@
  *  by element token. Actions go through the accessibility path by default — no cursor moves,
  *  no focus stealing — so the user keeps typing while Jev works. */
 import { execFile } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -18,6 +19,9 @@ import { type AxElement, BROWSER_APPS, type MacWindow, appUrl, appWindow, driver
 export type Driver = (tool: string, args?: Record<string, unknown>) => Promise<unknown>;
 
 export interface MacExecutorOptions {
+  pictureWindow?: () => MacWindow | null;
+  /** A remote human takes over the pictured window; desktop/agent actions keep their background ladder. */
+  manualDelivery?: "foreground";
   driver?: Driver;
   /** Processes whose windows are never the user's target (the floating panel itself). */
   ownPids?: () => number[];
@@ -111,6 +115,7 @@ export function launchDaemon(): Promise<void> {
 }
 
 export class MacExecutor implements Executor {
+  private readonly fileId = `${process.pid}-${randomUUID()}`;
   readonly kind = "mac" as const;
   readonly capabilities: ExecutorCapabilities = { screenshot: true, viewport: false, clickAt: false, read: false };
   readonly viewport = { width: 1280, height: 800 };
@@ -261,6 +266,7 @@ export class MacExecutor implements Executor {
     const held = this.held?.window ?? null;
     let problem: string | null = null;
     const win =
+      this.opts.pictureWindow?.() ||
       (this.working && held) ||
       (await this.front().catch((err) => {
         problem = `Couldn't see which window is in front (${err instanceof Error ? err.message : String(err)})`;
@@ -272,8 +278,8 @@ export class MacExecutor implements Executor {
       this.lastShot = { at: this.now(), buf: null };
       return null;
     }
-    const png = join(tmpdir(), `jev-mac-${process.pid}.png`);
-    const jpg = join(tmpdir(), `jev-mac-${process.pid}.jpg`);
+    const png = join(tmpdir(), `jev-mac-${this.fileId}.png`);
+    const jpg = join(tmpdir(), `jev-mac-${this.fileId}.jpg`);
     let buf: Uint8Array | null = null;
     try {
       await this.call("get_window_state", { pid: win.pid, window_id: win.window_id, include_accessibility_tree: false, max_dimension: 1280, screenshot_out_file: png });
@@ -464,7 +470,7 @@ export class MacExecutor implements Executor {
 
   /** The driver's click space for a window: its own screenshot's width, and the window's bounds. */
   private async measure(win: MacWindow): Promise<{ screenshotWidth: number; bounds: MacWindow["bounds"] }> {
-    const shot = join(tmpdir(), `jev-click-${process.pid}.png`);
+    const shot = join(tmpdir(), `jev-click-${this.fileId}.png`);
     const r = (await this.call("get_window_state", { pid: win.pid, window_id: win.window_id, include_accessibility_tree: false, screenshot_out_file: shot })) as {
       screenshot_width?: number;
       window_bounds?: MacWindow["bounds"];
@@ -488,14 +494,15 @@ export class MacExecutor implements Executor {
     const win = this.shownWindow();
     const m = await this.measure(win);
     const at = pointFor(fx, fy, m.bounds, m.screenshotWidth);
-    await this.deliver("click", win, at);
+    if (this.opts.manualDelivery === "foreground") await this.call("click", { pid: win.pid, window_id: win.window_id, ...at, delivery_mode: "foreground" });
+    else await this.deliver("click", win, at);
     this.invalidate();
     return `Clicked in ${win.app_name}`;
   }
 
   async inputText(text: string): Promise<string> {
     const win = this.shownWindow();
-    await this.call("type_text", { pid: win.pid, window_id: win.window_id, text });
+    await this.call("type_text", { pid: win.pid, window_id: win.window_id, text, ...(this.opts.manualDelivery ? { delivery_mode: this.opts.manualDelivery } : {}) });
     this.invalidate();
     return `Typed in ${win.app_name}`;
   }
@@ -503,7 +510,9 @@ export class MacExecutor implements Executor {
   async inputKey(key: string): Promise<string> {
     const win = this.shownWindow();
     const k = driverKey(key);
-    await this.deliver("press_key", win, { key: k.key, ...(k.modifiers.length ? { modifiers: k.modifiers } : {}) });
+    const args = { key: k.key, ...(k.modifiers.length ? { modifiers: k.modifiers } : {}) };
+    if (this.opts.manualDelivery === "foreground") await this.call("press_key", { pid: win.pid, window_id: win.window_id, ...args, delivery_mode: "foreground" });
+    else await this.deliver("press_key", win, args);
     this.invalidate();
     return `Pressed ${key} in ${win.app_name}`;
   }
@@ -534,7 +543,7 @@ export class MacExecutor implements Executor {
     if (!hit?.frame) throw new Error(`No text "${text}" in the last read — read again and use text shown under "Text on screen".`);
     const name = (hit.value || hit.label || text).trim();
     // The click space is the driver's own screenshot of the window, whose size it reports here.
-    const shot = join(tmpdir(), `jev-click-${process.pid}.png`);
+    const shot = join(tmpdir(), `jev-click-${this.fileId}.png`);
     const r = (await this.call("get_window_state", { pid: held.window.pid, window_id: held.window.window_id, include_accessibility_tree: false, screenshot_out_file: shot })) as {
       screenshot_width?: number;
       window_bounds?: { x: number; y: number; width: number };

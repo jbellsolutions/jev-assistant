@@ -293,6 +293,21 @@ describe("MacExecutor for the brain: named apps, in the background", () => {
 
 describe("\"Your screen\" pictures the user's window, live (v11.5)", () => {
   const jev: MacWindow = { ...slack, app_name: "Jev", pid: 7, window_id: 1, title: "Jev" };
+  it("uses the explicit pictured window and foreground delivery for a remote human", async () => {
+    const { driver, calls } = fakeDriver({ windows: [chrome, slack] });
+    const mac = new MacExecutor({ driver, manualDelivery: "foreground", pictureWindow: () => slack });
+    await mac.start(); await mac.screenshot(); expect((await mac.frameInfo()).title).toBe(slack.title);
+    await mac.inputClick(.5, .5); expect(calls.at(-1)?.args).toMatchObject({ pid: slack.pid, window_id: slack.window_id, delivery_mode: "foreground" });
+    await mac.inputText("synthetic input"); expect(calls.at(-1)).toMatchObject({ tool: "type_text", args: { pid: slack.pid, window_id: slack.window_id, delivery_mode: "foreground", text: "synthetic input" } });
+    await mac.inputKey("cmd+a"); expect(calls.at(-1)).toMatchObject({ tool: "press_key", args: { key: "a", modifiers: ["cmd"], delivery_mode: "foreground" } });
+  });
+  it("uses different capture files for concurrent desktop and phone executors", async () => {
+    const { driver, calls } = fakeDriver({ windows: [slack] });
+    const a = new MacExecutor({ driver, pictureWindow: () => slack }), b = new MacExecutor({ driver, pictureWindow: () => slack });
+    await Promise.all([a.screenshot(), b.screenshot()]);
+    const files = calls.filter((c) => c.tool === "get_window_state" && c.args.screenshot_out_file).map((c) => c.args.screenshot_out_file);
+    expect(files).toHaveLength(2); expect(new Set(files).size).toBe(2);
+  });
 
   it("pictures the app Jev read while she works there, and his front window again once she moves on", async () => {
     const state = { windows: [chrome, slack] };

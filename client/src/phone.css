@@ -63,6 +63,17 @@
 .phone-approval > b { color: #e8bf85; font-size: 12px; }
 .phone-approval > div, .phone-task-controls { display: flex; gap: 8px; flex-wrap: wrap; }
 .phone-task-controls { margin-top: 15px; }
+.phone-mac-readiness { font-size: 12px; }
+.phone-mac-toolbar, .phone-mac-keys { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.phone-mac-toolbar button, .phone-mac-keys button { font-size: 13px; }
+.phone-mac-picture { width: 100%; min-height: 160px; overflow: auto; background: #08060e; border: 1px solid #493763; border-radius: 12px; }
+.phone-mac-picture img { display: block; width: 100%; height: auto; max-width: 100%; }
+.phone-mac-picture > p { padding: 20px; }
+.phone-app .phone-mac-caption { font-size: 11px; }
+.phone-app .phone-manual { display: flex; align-items: center; gap: 10px; font-size: 15px; margin-top: 20px; }
+.phone-app .phone-manual input { width: 24px; height: 24px; min-height: 24px; flex: none; }
+.phone-manual-controls { margin-top: 16px; padding: 16px; background: #21192e; border: 1px solid #493763; border-radius: 14px; }
+.phone-manual-controls p { font-size: 13px; }
 .phone-task-controls button { font-size: 13px; }
 .phone-output { white-space: pre-wrap; max-height: 500px; overflow: auto; }
 .phone-task summary { min-height: 44px; display: flex; align-items: center; color: #d0b7ef; cursor: pointer; }

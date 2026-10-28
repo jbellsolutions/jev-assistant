@@ -48,7 +48,9 @@ const bridge = new RemoteExecutor({
 const mac = selectMac();
 const cofounder = selectCofounder();
 const brain = createBrain(process.env, { spoken: !!voice.speaker, hands: { mac, chrome: bridge, chromeBackground: bridge.jevTab(), computer, box: selectBrowserBox(), cofounder, orgo: selectOrgo() } });
-const assistant = createAssistantRuntime({ env: process.env, hands: { mac, chrome: bridge, chromeBackground: bridge.jevTab(), computer, cofounder, orgo: selectOrgo() }, chromeReady: () => bridge.ready, computerReady: () => mac?.ready ?? false });
+const assistant = createAssistantRuntime({ env: process.env, hands: { mac, chrome: bridge, chromeBackground: bridge.jevTab(), computer, cofounder, orgo: selectOrgo() }, chromeReady: () => bridge.ready, computerReady: () => mac?.ready ?? false,
+  phoneScreen: () => selectMac({ ownPids: () => [process.pid], manualDelivery: "foreground", pictureWindow: () => mac?.working ? mac.window : null }),
+});
 const companion = createCompanion({
   phone: { home: process.env.JEV_HOME!, port: process.env.JEV_PHONE_PORT ? Number(process.env.JEV_PHONE_PORT) : undefined },
   assistant,

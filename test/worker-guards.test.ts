@@ -90,6 +90,14 @@ describe("one tab per job", () => {
 });
 
 describe("fields show what they hold", () => {
+  it("can return an actual Mac screenshot alongside accessibility text", async () => {
+    const mac: import("../core/executor.js").Executor = new FakeExecutor([]); mac.screenshot = async () => Buffer.from("synthetic-image");
+    const tools = buildTools({ mac, chrome: null, computer: null }, { signal: new AbortController().signal, ask: async () => false });
+    const output = await (tools.mac_read!.execute as Function)({ screen: true }, { toolCallId: "mac-picture", messages: [] });
+    expect(output.jpegBase64).toBe(Buffer.from("synthetic-image").toString("base64")); expect(output.text).toContain("Example");
+    const model = await (tools.mac_read!.toModelOutput as Function)({ output });
+    expect(model.type).toBe("content"); expect(model.value.some((part: any) => part.type === "file" && part.mediaType === "image/jpeg")).toBe(true);
+  });
   it("read_elements shows values, and passwords only as dots", () => {
     const out = renderSnapshot({
       url: "https://x.test",

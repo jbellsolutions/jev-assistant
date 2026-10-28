@@ -15,8 +15,10 @@ import type { VoiceConnection } from "../../core/voice-connection.js";
 import { VoiceLeases } from "./voice-leases.js";
 import { AppPermissions, PERMISSION_ACTIONS, spokenApproval } from "./permissions.js";
 import { voiceAgentName } from "../voice/identity.js";
+import { MacScreens } from "./mac-screen.js";
+import type { Executor } from "../../core/executor.js";
 
-export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Hands; chromeReady: () => boolean; computerReady: () => boolean; workers?: Partial<Record<WorkTarget, TaskWorker>> }) {
+export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Hands; chromeReady: () => boolean; computerReady: () => boolean; phoneScreen?: () => Executor | null; workers?: Partial<Record<WorkTarget, TaskWorker>> }) {
   const env = opts.env;
   const permissions = new AppPermissions(env.JEV_HOME || path.join(homedir(), ".jev-assistant"));
   const appWriteAllowed = (slug: string, account: string) => permissions.allowed(slug, account);
@@ -46,6 +48,10 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     await recovery;
   };
   let paused = false;
+  const screens = new MacScreens(opts.phoneScreen ?? (() => null), () => paused ? "Jarvis is paused. Resume it on the Mac before taking control." : queue.executing("local") || queue.list().some((t) => t.target === "local" && ["queued", "running", "waiting_for_user"].includes(t.status)) ? "Pause the active Mac task and wait for it to stop before using manual controls." : null);
+  const environment = (target: WorkTarget) => target === "local"
+    ? `Selected environment: the user's Mac running this desktop companion. The phone is only a remote interface to THIS Mac. Mac app control: ${opts.computerReady() ? "connected" : "unavailable; inspect the concrete driver error"}. Chrome bridge: ${opts.chromeReady() ? "connected" : "not connected"}. App/file launcher: ${opts.hands.computer ? "available" : "unavailable"}. Delegate requests to open apps, find files, inspect or act on the Mac, including questions like can you see my screen, to the application. The local worker can inspect fresh accessibility text and request screenshots. Never infer lack of Mac access from the user being on a phone. Screens are read on demand; do not pretend to watch continuously. Report the actual observation or tool error.`
+    : target === "cloud" ? "Selected environment: Jarvis's separate Browser Use cloud browser. This target cannot operate the user's Mac. For Mac apps/files ask the user to choose My computer at home; never silently switch targets." : "Selected environment: the configured co-founder's Orgo computer. It is separate from the user's Mac.";
   let cloudClosing = false;
   let voiceWorker: AssistantStatus["voiceWorker"] = "off";
   let voiceError: string | undefined;
@@ -87,6 +93,8 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
       Promise.resolve().then(() => fn(req, res)).catch((e) => res.status(400).json({ error: e instanceof Error ? e.message : "Request failed" }));
     };
     api.get("/status", (_req, res) => res.json(status()));
+    api.get("/mac/screen", handle(async (_req, res) => res.json(await screens.capture(res.locals.phoneDeviceId ?? "desktop", res.locals.phoneAuthorized ?? (() => true)))));
+    api.post("/mac/input", handle(async (req, res) => res.json(await screens.input(res.locals.phoneDeviceId ?? "desktop", req.body, res.locals.phoneAuthorized ?? (() => true)))));
     api.get("/apps", handle(async (_req, res) => res.json({ apps: await apps.list() })));
     api.get("/permissions", handle(async (_req, res) => {
       const accounts = env.COMPOSIO_API_KEY ? await apps.selectedAccounts() : new Map<string, string>();
@@ -197,6 +205,11 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
       if (session.connection.state !== "failed") session.connection = { state: req.body.state, ...(req.body.state === "failed" ? { failure: ["quota", "authentication"].includes(req.body.failure) ? req.body.failure : "unavailable" } : {}) };
       res.json({ ok: true });
     }));
+    api.post("/voice/environment", handle((req, res) => {
+      const session = voiceRooms.get(String(req.body?.room));
+      if (!session) throw new Error("Voice conversation ended");
+      res.json({ instructions: environment(session.target) });
+    }));
     api.post("/voice/delegate", handle(async (req, res) => {
       const v = voiceRooms.get(String(req.body?.room));
       if (!v || v.expires < Date.now()) throw new Error("Unknown or expired voice session");
@@ -224,6 +237,9 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
       const v = voiceRooms.get(String(req.body?.room));
       if (!v || v.expires < Date.now()) return void res.status(400).json({ error: "Voice session ended" });
       const updates: string[] = [];
+      const currentEnvironment = environment(v.target);
+      const environmentInstructions = v.seen.get("__environment") !== currentEnvironment ? currentEnvironment : undefined;
+      if (environmentInstructions) v.seen.set("__environment", currentEnvironment);
       for (const t of queue.list().filter((t) => t.target === v.target).slice(0, 10)) {
         const marker = `${t.status}:${t.approval?.requestId ?? ""}`;
         const before = v.seen.get(t.id); v.seen.set(t.id, marker);
@@ -232,12 +248,12 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
           else updates.push(`${t.goal}: ${t.error ?? t.output.slice(0, 2000)}`);
         }
       }
-      res.json({ updates });
+      res.json({ updates, ...(environmentInstructions ? { environmentInstructions } : {}) });
     });
     app.use("/assistant", api);
   }
   return { queue, status, command, mount, recoverVoice, recoverCloud: () => cloud.recover(queue.list().filter((t) => t.target === "cloud" && ["queued", "running"].includes(t.status)).flatMap((t) => t.providerBrowserId ? [t.providerBrowserId] : [])),
-    async endPhoneVoice(deviceId: string) { for (const [room, session] of voiceRooms) if (session.phoneDeviceId === deviceId) await endRoom(room); },
+    async endPhoneVoice(deviceId: string) { screens.drop(deviceId); for (const [room, session] of voiceRooms) if (session.phoneDeviceId === deviceId) await endRoom(room); },
     canRestart() { return !voiceCreating && !queue.list().some((t) => ["running", "queued", "waiting_for_user"].includes(t.status)) && ![...voiceRooms.values()].some((s) => s.expires > Date.now()); },
     setPaused(value: boolean) { paused = value; queue.setEnabled(!value); },
     setVoiceWorker(value: AssistantStatus["voiceWorker"], error?: string) { voiceWorker = value; voiceError = error; },

@@ -52,7 +52,9 @@ describe("phone gateway", () => {
     expect((await request("/assistant/status", undefined, cookie, { host: "foreign.test" })).status).toBe(403);
     expect((await request("/assistant/status", undefined, cookie, { "x-forwarded-proto": "http" })).status).toBe(403);
     expect((await request("/assistant/command", { text: "Work", target: "local" }, cookie, { "X-Jev-UI": "" })).status).toBe(403);
-    for (const route of ["/voice/delegate", "/voice/state", "/voice/updates", "/permissions", "/apps/connect"]) expect((await request(`/assistant${route}`, {}, cookie)).status).toBe(403);
+    for (const route of ["/voice/delegate", "/voice/state", "/voice/updates", "/voice/environment", "/permissions", "/apps/connect"]) expect((await request(`/assistant${route}`, {}, cookie)).status).toBe(403);
+    expect((await request("/assistant/mac/screen")).status).toBe(401);
+    expect((await request("/assistant/mac/screen", undefined, cookie)).status).toBe(400); // fixture has no Mac driver
     for (const route of ["/api/health", "/ws", "/ws/bridge", "/attachments", "/phone-access/pairing", "/phone-devices.json"]) expect((await request(route, undefined, cookie)).status).toBe(404);
     await phone.configure(""); expect((await request("/phone/session", undefined, cookie)).status).toBe(503);
   });

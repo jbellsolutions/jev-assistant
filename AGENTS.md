@@ -13,6 +13,7 @@ This is the canonical new project folder. Read README.md and docs/architecture.m
 - Reconcile an uncertain external write before retrying. Verify completion from observed evidence, not a worker's assertion alone.
 - Use actual current SDK contracts. In LiveKit GPT-Live client delegation, registered function tools are ignored; handle delegation events in application code.
 - Claim voice verification only after a real microphone conversation. Distinguish automated checks, live service checks, and untested behavior in every handoff.
+- Phone access must include the same real Mac app/file/task capabilities as desktop voice, alongside the separate Jarvis browser. A paired tunnel alone is not evidence of working Mac access. Check actual Mac observations/actions, provide the phone's Mac picture and manual controls, preserve target isolation, and never answer visibility/access questions with an untested general disclaimer.
 - Do not treat legacy verification reports as current service status. The October 11 v12 notes say the old Jev browser VM was deleted.
 
 ## Standing publication rule

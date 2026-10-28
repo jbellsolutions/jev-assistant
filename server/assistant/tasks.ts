@@ -52,6 +52,7 @@ export class TaskQueue {
     }
   }
   list(): WorkTask[] { return [...this.tasks.values()].sort((a, b) => b.createdAt - a.createdAt).map((t) => structuredClone(t)); }
+  executing(target: WorkTarget): boolean { return !!this.active && this.tasks.get(this.active.id)?.target === target; }
   get(id: string): WorkTask { const t = this.tasks.get(id); if (!t) throw new Error("Task not found"); return structuredClone(t); }
   subscribe(fn: () => void): () => void { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   start(): void { this.kick(); }
