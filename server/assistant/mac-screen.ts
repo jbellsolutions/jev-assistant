@@ -30,7 +30,7 @@ export class MacScreens {
       const info = s.executor.frameInfo ? await s.executor.frameInfo() : { title: await s.executor.title() };
       const blocked = this.blocked();
       const canInput = !!s.executor.inputClick && !!s.executor.inputText && !!s.executor.inputKey;
-      s.frame = { frameId: randomUUID(), at: Date.now(), title: info.title, jpegBase64: Buffer.from(image).toString("base64"), canControl: !blocked && canInput, controlMessage: blocked || (canInput ? "Tap the picture, type, or send a key to this Mac window." : "This screen is view-only.") };
+      s.frame = { frameId: randomUUID(), at: Date.now(), title: info.title, jpegBase64: Buffer.from(image).toString("base64"), canControl: !blocked && canInput, controlMessage: blocked || (canInput ? "Tap the picture, type, or send a key to this Mac." : "This screen is view-only.") };
       return s.frame;
     } finally { s.busy = false; }
   }

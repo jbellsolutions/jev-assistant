@@ -26,6 +26,8 @@ import { hasHandle, type SecretVault } from "./secrets.js";
 export interface Hands {
   /** The Mac app in front, through cua-driver. */
   mac: Executor | null;
+  /** Read-only visual fallback when a sheet or system dialog cannot expose an app-window tree. */
+  screen?: Executor | null;
   /** the user's own Chrome, through the bridge extension: the tab he is looking at. */
   chrome: Executor | null;
   /** The same Chrome, in Jev's own minimized window (same logins, never on screen). The brain's
@@ -359,16 +361,24 @@ export function buildTools(hands: Hands, ctx: ToolContext): ToolSet {
       }),
       execute: async (input) => {
         if (stopped()) return "Stopped.";
-        if (!hands.mac) return "Mac control is off on this machine.";
-        if (hands.mac.ready === false) return "The Mac isn't reachable right now (cua-driver is not answering).";
+        if (!hands.mac || hands.mac.ready === false) {
+          const reason = !hands.mac ? "Mac app control is off on this machine." : "Mac accessibility control is unavailable right now.";
+          if (input.screen && hands.screen) { const image = await hands.screen.screenshot(); if (image?.length) return { text: `${reason} This is a picture of the Mac primary display only; it does not establish app-control permission.`, jpegBase64: Buffer.from(image).toString("base64") }; }
+          return reason;
+        }
         let text: string;
-        if (hasMacApps(hands.mac)) {
+        try { if (hasMacApps(hands.mac)) {
           const r = await hands.mac.readApp(input.app ?? null, input.query ? { query: input.query } : {});
           lastMac = r.snapshot;
           text = renderMacRead(r);
-        } else { lastMac = await hands.mac.snapshot(); text = renderSnapshot(lastMac); }
+        } else { lastMac = await hands.mac.snapshot(); text = renderSnapshot(lastMac); } }
+        catch (error) {
+          if (!input.screen) throw error;
+          lastMac = null; text = "The app-window accessibility read was unavailable. The following is an observation of the Mac display; do not invent element IDs.";
+        }
         if (input.screen) {
-          const image = await hands.mac.screenshot().catch(() => null);
+          let image = lastMac ? await hands.mac.screenshot().catch(() => null) : null;
+          if (!image?.length && hands.screen) { image = await hands.screen.screenshot(); if (image?.length) text += "\nVisual source: the Mac primary display, including any dialogs, not an isolated app window."; }
           if (image?.length) return { text, jpegBase64: Buffer.from(image).toString("base64") };
           return `${text}\nScreenshot unavailable: ${hands.mac.frameProblem || "check Screen Recording permission on the Mac"}. This is an accessibility-text observation, not a picture.`;
         }

@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadConfiguration } from "./configuration.js";
 import { createAssistantRuntime } from "./assistant/runtime.js";
+import { MacDesktopExecutor } from "./executors/mac-desktop.js";
 import { startVoiceProcess } from "./assistant/voice-process.js";
 import { createDecider } from "../core/decide.js";
 import { createCompanion } from "./companion.js";
@@ -48,8 +49,8 @@ const bridge = new RemoteExecutor({
 const mac = selectMac();
 const cofounder = selectCofounder();
 const brain = createBrain(process.env, { spoken: !!voice.speaker, hands: { mac, chrome: bridge, chromeBackground: bridge.jevTab(), computer, box: selectBrowserBox(), cofounder, orgo: selectOrgo() } });
-const assistant = createAssistantRuntime({ env: process.env, hands: { mac, chrome: bridge, chromeBackground: bridge.jevTab(), computer, cofounder, orgo: selectOrgo() }, chromeReady: () => bridge.ready, computerReady: () => mac?.ready ?? false,
-  phoneScreen: () => selectMac({ ownPids: () => [process.pid], manualDelivery: "foreground", pictureWindow: () => mac?.working ? mac.window : null }),
+const assistant = createAssistantRuntime({ env: process.env, hands: { mac, screen: mac ? new MacDesktopExecutor() : null, chrome: bridge, chromeBackground: bridge.jevTab(), computer, cofounder, orgo: selectOrgo() }, chromeReady: () => bridge.ready, computerReady: () => mac?.ready ?? false,
+  phoneScreen: () => mac ? new MacDesktopExecutor() : null,
 });
 const companion = createCompanion({
   phone: { home: process.env.JEV_HOME!, port: process.env.JEV_PHONE_PORT ? Number(process.env.JEV_PHONE_PORT) : undefined },

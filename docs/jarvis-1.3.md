@@ -7,3 +7,7 @@ The phone now defaults to the Mac and remembers the selected environment. A **Ma
 The real-machine check found that the background manual-input path could report an attempt without an observed change. Phone manual controls now explicitly use foreground delivery to the selected window. Background agent/desktop behavior remains separate. Concurrent capture files also use a unique executor identity instead of one path per process.
 
 Tailscale continues to provide the private HTTPS transport. Changing tunnel vendors would not fix missing application tools or an agent that failed to inspect them. Other trusted HTTPS relays remain possible with the same paired gateway. The Mac must stay awake, unlocked for relevant interactions and running Jarvis with Cua Driver's permissions. Physical iPhone audio still requires human testing.
+
+## 1.3.1 display capture
+
+The installed 1.3.0 check exposed another gap: a window-specific capture could fail for a small TextEdit window even with both Mac permissions granted. Version 1.3.1 uses native primary-display capture for the phone instead. This includes system dialogs and the actual desktop. The preview is resized, while click coordinates remain bound to native display pixels; text and keys go to the focused Mac app. The worker also has a read-only display-image fallback when an app-window read or screenshot fails. Cloud and Orgo workers do not receive that Mac capability. The 1.3.0 assets remain unchanged.

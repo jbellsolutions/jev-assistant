@@ -90,6 +90,13 @@ describe("one tab per job", () => {
 });
 
 describe("fields show what they hold", () => {
+  it("uses a primary-display observation when an app-window accessibility read fails", async () => {
+    const mac: import("../core/executor.js").Executor = new FakeExecutor([]); mac.snapshot = async () => { throw new Error("window inaccessible"); };
+    const screen: import("../core/executor.js").Executor = new FakeExecutor([]); screen.screenshot = async () => Buffer.from("synthetic-display");
+    const tools = buildTools({ mac, screen, chrome: null, computer: null }, { signal: new AbortController().signal, ask: async () => false });
+    const out = await (tools.mac_read!.execute as Function)({ screen: true }, { toolCallId: "display-fallback", messages: [] });
+    expect(out.text).toContain("Mac primary display"); expect(out.text).toContain("do not invent element IDs"); expect(out.jpegBase64).toBe(Buffer.from("synthetic-display").toString("base64"));
+  });
   it("can return an actual Mac screenshot alongside accessibility text", async () => {
     const mac: import("../core/executor.js").Executor = new FakeExecutor([]); mac.screenshot = async () => Buffer.from("synthetic-image");
     const tools = buildTools({ mac, chrome: null, computer: null }, { signal: new AbortController().signal, ask: async () => false });

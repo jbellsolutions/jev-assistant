@@ -77,7 +77,7 @@ try {
     await page.screenshot({ path: `${screenshots}/${name}-talk.png`, fullPage: true });
     await page.getByRole("button", { name: "Mac", exact: true }).click();
     await page.getByRole("img", { name: "Mac window: Synthetic Mac window", exact: true }).waitFor();
-    await page.getByLabel("Control this Mac window").check();
+    await page.getByLabel("Control this Mac", { exact: true }).check();
     await page.getByLabel("Text for Mac").fill(`synthetic-${name}`);
     await page.getByRole("button", { name: "Type on Mac", exact: true }).click();
     await page.waitForFunction(() => document.querySelector('[aria-label="Text for Mac"]')?.value === "");

@@ -10,6 +10,7 @@ import { loadEnvFile } from "../server/env.js";
 import { loadConfiguration } from "../server/configuration.js";
 import { connectionSettings, saveConnections } from "../server/credentials.js";
 import { createAssistantRuntime } from "../server/assistant/runtime.js";
+import { MacDesktopExecutor } from "../server/executors/mac-desktop.js";
 import { startVoiceProcess } from "../server/assistant/voice-process.js";
 import { prepareExtension } from "../server/assistant/extension.js";
 import { windowSize, saveWindowSize } from "./window-size.js";
@@ -243,8 +244,8 @@ async function main() {
   // the brain's hands are the same executors the fast lane uses — no second browser, no second driver
   const cofounder = selectCofounder();
   const brain = createBrain(process.env, { spoken: !!voice.speaker, hands: { mac, chrome: bridge, chromeBackground: bridge.jevTab(), computer, box: selectBrowserBox(), cofounder, orgo: selectOrgo() } });
-  const assistant = createAssistantRuntime({ env: process.env, hands: { mac, chrome: bridge, chromeBackground: bridge.jevTab(), computer, cofounder, orgo: selectOrgo() }, chromeReady: () => bridge.ready, computerReady: () => mac?.ready ?? false,
-    phoneScreen: () => selectMac({ ownPids: () => [process.pid], manualDelivery: "foreground", pictureWindow: () => mac?.working ? mac.window : null }),
+  const assistant = createAssistantRuntime({ env: process.env, hands: { mac, screen: mac ? new MacDesktopExecutor() : null, chrome: bridge, chromeBackground: bridge.jevTab(), computer, cofounder, orgo: selectOrgo() }, chromeReady: () => bridge.ready, computerReady: () => mac?.ready ?? false,
+    phoneScreen: () => mac ? new MacDesktopExecutor() : null,
   });
   const companion = createCompanion({
     phone: { home: process.env.JEV_HOME!, port: process.env.JEV_PHONE_PORT ? Number(process.env.JEV_PHONE_PORT) : undefined },

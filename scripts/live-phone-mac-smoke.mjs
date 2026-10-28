@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { chromium, devices } from "playwright";
 import { parseEnv } from "../server/env.ts";
 import { cliDriver, selectMac } from "../server/executors/mac.ts";
+import { MacDesktopExecutor } from "../server/executors/mac-desktop.ts";
 import { MacComputer } from "../server/computer.ts";
 import { PhoneAccess } from "../server/phone.ts";
 import { createAssistantRuntime } from "../server/assistant/runtime.ts";
@@ -30,7 +31,7 @@ try {
   await wait(async () => { fixtureWindow = (await driver("list_windows", {})).windows?.find((w) => w.app_name === "TextEdit" && w.title.includes(path.basename(manualFile, ".txt"))); return !!fixtureWindow; }); selectedWindow = fixtureWindow;
   const env = { JEV_HOME: home, OPENAI_API_KEY: saved.OPENAI_API_KEY, JEV_BRAIN_MODEL: "gpt-6-luna" };
   runtime = createAssistantRuntime({ env, hands: { mac, chrome: null, computer: new MacComputer() }, chromeReady: () => false, computerReady: () => mac.ready,
-    phoneScreen: () => selectMac({ manualDelivery: "foreground", pictureWindow: () => selectedWindow }),
+    phoneScreen: () => new MacDesktopExecutor(),
   });
   phone = new PhoneAccess({ home, clientDir: path.join(root, "dist/client"), assistant: runtime }); await phone.listen(0);
   execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", `${home}/tls.key`, "-out", `${home}/tls.crt`, "-days", "1", "-subj", "/CN=localhost"], { stdio: "ignore" });
@@ -39,8 +40,12 @@ try {
   browser = await chromium.launch(); const { defaultBrowserType: _, ...device } = devices["iPhone 13"]; const context = await browser.newContext({ ...device, ignoreHTTPSErrors: true }); const page = await context.newPage();
   await page.goto(`${origin}/phone`); await page.getByLabel("Pairing code").fill(phone.issueCode().code); await page.getByRole("button", { name: "Connect to Jarvis", exact: true }).click(); await page.locator(".phone-connection.connected").waitFor();
   const call = (route, body) => page.evaluate(async ({ route, body }) => { const r = await fetch(`/assistant${route}`, { method: body === undefined ? "GET" : "POST", headers: { "X-Jev-UI": "1", "Content-Type": "application/json" }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }); const data = await r.json(); if (!r.ok) throw Error(data.error || "Phone request failed"); return data; }, { route, body });
-  let frame = await call("/mac/screen"); assert.ok(frame.jpegBase64.length > 1000); assert.ok(frame.title.includes(path.basename(manualFile, ".txt")));
-  await call("/mac/input", { requestId: randomUUID(), frameId: frame.frameId, action: "click", fx: .5, fy: .35 });
+  let frame = await call("/mac/screen"); assert.ok(frame.jpegBase64.length > 1000); assert.equal(frame.title, "Mac primary display");
+  const display = new MacDesktopExecutor(); await display.screenshot();
+  // get_desktop_state returns native pixels; WindowServer bounds use logical points. Read backing scale from its metadata.
+  const desktopState = await driver("get_desktop_state", {});
+  const backing = Number(desktopState.scale_factor); assert.ok(Number.isFinite(backing) && backing > 0);
+  await call("/mac/input", { requestId: randomUUID(), frameId: frame.frameId, action: "click", fx: (fixtureWindow.bounds.x + fixtureWindow.bounds.width * .5) * backing / display.viewport.width, fy: (fixtureWindow.bounds.y + fixtureWindow.bounds.height * .35) * backing / display.viewport.height });
   frame = await call("/mac/screen");
   await call("/mac/input", { requestId: randomUUID(), frameId: frame.frameId, action: "key", key: "cmd+a" });
   frame = await call("/mac/screen"); await call("/mac/input", { requestId: randomUUID(), frameId: frame.frameId, action: "text", text: manualProof });

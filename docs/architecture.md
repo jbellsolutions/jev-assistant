@@ -72,6 +72,8 @@ Electron keeps context isolation and disables Node integration in the renderer. 
 
 The app package excludes `.env` and paired extension credentials. On startup it creates/refreshes a stable private unpacked extension folder. Existing machine endpoints, old deployments and old private credentials were not carried into the new default configuration.
 
+Version 1.3.1 uses a separate primary-display executor for the phone picture/manual controls, rather than depending on window capture that can fail for a dialog or small window. Native PNG dimensions own the input coordinate space; the JPEG preview can be resized independently. Display-scoped click/text/key calls act as the paired human's hands. The local worker has a read-only display-picture fallback when app-window observation fails; other execution targets do not receive that Mac screen capability.
+
 ## Future work
 
 After account/audio validation, test real Slack, GoHighLevel and ChatGPT workflows, improve outcome classification and step-level evidence, and measure cost/latency on representative tasks. Test phone audio on physical iPhone hardware. Project dependencies and an always-on host remain future work.
