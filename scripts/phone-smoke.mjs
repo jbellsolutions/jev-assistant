@@ -1,7 +1,7 @@
 /** Synthetic phone UI through a real HTTPS reverse proxy; no provider accounts or user data. */
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, mkdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import { tmpdir } from "node:os";
@@ -11,10 +11,22 @@ import { chromium, webkit, devices } from "playwright";
 import { createAssistantRuntime } from "../server/assistant/runtime.ts";
 import { createCompanion } from "../server/companion.ts";
 import { HeuristicDecider } from "../core/decide.ts";
+import { FakeExecutor } from "../test/helpers/fake-executor.ts";
+import { appIconPng } from "../app/tray-icon.ts";
 const root = fileURLToPath(new URL("..", import.meta.url));
 const home = mkdtempSync(path.join(tmpdir(), "jarvis-phone-smoke-"));
 const screenshots = path.join(root, "scratch", "phone-preview"); mkdirSync(screenshots, { recursive: true });
 const completions = new Map(); const executed = [];
+const manual = [];
+writeFileSync(path.join(home, "screen.png"), appIconPng(256));
+execFileSync("sips", ["-s", "format", "jpeg", path.join(home, "screen.png"), "--out", path.join(home, "screen.jpg")], { stdio: "ignore" });
+const phoneScreen = () => {
+  const e = new FakeExecutor([]); e.titleText = "Synthetic Mac window"; e.screenshot = async () => readFileSync(path.join(home, "screen.jpg"));
+  e.inputClick = async (fx, fy) => { manual.push(["click", fx, fy]); return "Clicked"; };
+  e.inputText = async (text) => { manual.push(["text", text]); return "Typed"; };
+  e.inputKey = async (key) => { manual.push(["key", key]); return "Key sent"; };
+  return e;
+};
 const worker = {
   run(task, ctx) {
     executed.push(task.target);
@@ -27,7 +39,7 @@ const worker = {
   },
   async approve(id, choice) { completions.get(id)?.(`Synthetic approval: ${choice}`); },
 };
-const assistant = createAssistantRuntime({ env: { JEV_HOME: home }, hands: { mac: null, chrome: null, computer: null }, chromeReady: () => false, computerReady: () => false, workers: { local: worker, cloud: worker } });
+const assistant = createAssistantRuntime({ env: { JEV_HOME: home }, hands: { mac: null, chrome: null, computer: null }, chromeReady: () => false, computerReady: () => false, phoneScreen, workers: { local: worker, cloud: worker } });
 const companion = createCompanion({ assistant, token: "synthetic-phone-smoke-token", decider: new HeuristicDecider(), clientDir: path.join(root, "dist/client"), phone: { home, port: 0 } });
 let tls; let browser;
 try {
@@ -61,7 +73,18 @@ try {
     catch (e) { console.log((await page.locator("body").innerText()).slice(0, 2000)); await page.screenshot({ path: `${screenshots}/${name}-failure.png`, fullPage: true }); throw e; }
     assert.ok((await context.cookies()).some((c) => c.name === "__Host-jarvis-phone" && c.httpOnly && c.secure));
     assert.ok((await page.getByLabel("Work environment").boundingBox()).height >= 44, "Work environment must have an iPhone-sized touch target");
+    assert.equal(await page.getByLabel("Work environment").inputValue(), "local");
     await page.screenshot({ path: `${screenshots}/${name}-talk.png`, fullPage: true });
+    await page.getByRole("button", { name: "Mac", exact: true }).click();
+    await page.getByRole("img", { name: "Mac window: Synthetic Mac window", exact: true }).waitFor();
+    await page.getByLabel("Control this Mac", { exact: true }).check();
+    await page.getByLabel("Text for Mac").fill(`synthetic-${name}`);
+    await page.getByRole("button", { name: "Type on Mac", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector('[aria-label="Text for Mac"]')?.value === "");
+    await page.getByRole("button", { name: "Enter", exact: true }).click();
+    await page.getByRole("button", { name: "Refresh picture", exact: true }).click();
+    await page.screenshot({ path: `${screenshots}/${name}-mac.png`, fullPage: true });
+    await page.getByRole("button", { name: "Talk", exact: true }).click();
     for (const target of ["cloud", "local"]) {
       await page.getByLabel("Work environment").selectOption(target);
       await page.getByLabel("Or give me a task").fill(`Synthetic ${name} ${target} task`);
@@ -93,6 +116,8 @@ try {
     console.log(`PASS: ${name} iPhone viewport: HTTPS pairing, shared cloud/Mac tasks, approval, reload, browser/voice configuration errors, revocation and layout.`);
   }
   assert.equal(executed.filter((s) => s === "cloud").length, 2); assert.equal(executed.filter((s) => s === "local").length, 4);
+  assert.deepEqual(manual.filter(([action]) => action === "text"), [["text", "synthetic-chromium"], ["text", "synthetic-webkit"]]);
+  assert.equal(manual.filter(([action]) => action === "key").length, 2);
 } finally {
   await browser?.close();
   if (tls) await new Promise((resolve) => tls.close(resolve));

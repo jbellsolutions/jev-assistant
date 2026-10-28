@@ -38,6 +38,8 @@ The CI workflow checks and builds on an Apple Silicon macOS runner, then uploads
 
 The phone smoke needs `npx playwright install chromium webkit` and OpenSSL. It uses disposable profiles, a local self-signed HTTPS proxy and synthetic task workers. It does not use the owner's accounts. See docs/phone.md for the physical iPhone test boundary.
 
+Owner-authorized live Mac checks are separate from CI: run `JEV_LIVE_MAC_SMOKE=1 node --import tsx scripts/live-phone-mac-smoke.mjs`, then `JEV_LIVE_MAC_SMOKE=1 node --import tsx scripts/live-mac-voice-smoke.mjs`. Run them sequentially on an idle Mac with Cua Driver permissions and the existing private service connections. The first opens a disposable TextEdit document and inspects Slack through a real local worker; the second uses synthesized speech through LiveKit. They do not send a Slack message, capture the physical microphone or publish screenshots/transcripts. Build the current voice worker first with `npm run build:app`. They use paid connected services and do not replace physical iPhone tests.
+
 Before publishing a release:
 
 - Run the checks and relocated package smoke locally.

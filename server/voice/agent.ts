@@ -39,6 +39,8 @@ class JarvisVoice extends voice.Agent {
   private polling = false;
   constructor(private readonly room: string) { super({ instructions: PERSONA, llm: new JarvisLiveModel(room) }); }
   override async onEnter(): Promise<void> {
+    const environment = await call<{ instructions: string }>("/voice/environment", { room: this.room });
+    await this.updateInstructions(`${PERSONA}\n${environment.instructions}`);
     const duplex = this.duplexSession as realtime.GPTLiveSession;
     duplex.on("delegation_created", (event: realtime.GPTLiveDelegation) => {
       const messages = this.chatCtx.items.filter((i) => i.type === "message").slice(-12);
@@ -52,8 +54,9 @@ class JarvisVoice extends voice.Agent {
     this.poll = setInterval(() => {
       if (this.polling || !this.active) return;
       this.polling = true;
-      void call<{ updates: string[] }>("/voice/updates", { room: this.room }).then((r) => {
-        if (this.active && r.updates.length) duplex.appendCommentary(`Task update from the application: ${r.updates.join("\n")}`.slice(0, 1400));
+      void call<{ updates: string[]; environmentInstructions?: string }>("/voice/updates", { room: this.room }).then(async (r) => {
+        if (this.active && r.environmentInstructions) await this.updateInstructions(`${PERSONA}\n${r.environmentInstructions}`);
+        if (this.active && r.updates.length) duplex.appendCommentary(`Application update: ${r.updates.join("\n")}`.slice(0, 2000));
       }).catch(() => {}).finally(() => { this.polling = false; });
     }, 1000);
   }

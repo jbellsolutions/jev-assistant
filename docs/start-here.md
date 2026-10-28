@@ -4,7 +4,7 @@ Jarvis is a desktop assistant you can talk to naturally. It can work in Chrome, 
 
 ## Install
 
-1. Download **Jarvis-1.2.1-mac-arm64.pkg** from the [download page](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.2.1-preview.1).
+1. Download **Jarvis-1.3.1-mac-arm64.pkg** from the [download page](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.3.1-preview.1).
 2. Open the installer and follow the Mac's instructions. It installs **Jarvis** and **Cua Driver**, the helper for Mac control, in Applications. No coding tools or terminal are needed.
 3. Open **Jarvis** from Applications.
 

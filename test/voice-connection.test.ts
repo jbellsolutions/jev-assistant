@@ -28,6 +28,13 @@ async function setup(savedRoom?: string, worker?: TaskWorker) {
   return { runtime, post };
 }
 describe("actual voice readiness", () => {
+  it("tells voice that a phone controls the Mac, and refreshes instructions when the target changes", async () => {
+    const { post } = await setup(); const info = await (await post("token")).json();
+    const initial = await (await post("environment", { room: info.room })).json(); expect(initial.instructions).toContain("phone is only a remote interface");
+    expect(initial.instructions).toContain("App/file launcher: unavailable");
+    await post("target", { room: info.room, target: "cloud" });
+    const changed = await (await post("updates", { room: info.room })).json(); expect(changed.environmentInstructions).toContain("separate Browser Use cloud browser"); expect(changed.updates).toEqual([]);
+  });
   it("updates the active approval task with a correction even when older tasks are paused", async () => {
     let context!: WorkContext;
     const { runtime } = await setup(undefined, { run: async (_t, ctx) => { context = ctx; return new Promise((resolve) => ctx.signal.addEventListener("abort", () => resolve("interrupted"), { once: true })); } });

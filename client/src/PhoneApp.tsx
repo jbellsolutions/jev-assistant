@@ -5,6 +5,7 @@ import { assistantFetch, useAssistant } from "./hooks/useAssistant.ts";
 import { useLiveVoice } from "./hooks/useLiveVoice.ts";
 import { VoiceOrb } from "./components/VoiceOrb.tsx";
 import { CloudBrowser } from "./components/CloudBrowser.tsx";
+import { PhoneMacScreen } from "./components/PhoneMacScreen.tsx";
 import "./phone.css";
 
 async function phoneFetch<T>(route: string, body?: unknown): Promise<T> {
@@ -36,8 +37,8 @@ export function PhoneApp() {
 }
 
 function ConnectedPhone({ transport, onUnpair }: { transport: Transport; onUnpair(): void }) {
-  const [visible, setVisible] = useState(!document.hidden), [target, setTarget] = useState<WorkTarget>("cloud");
-  const [tab, setTab] = useState<"talk" | "tasks" | "browser">("talk");
+  const [visible, setVisible] = useState(!document.hidden), [target, setTarget] = useState<WorkTarget>(() => { try { const t = localStorage.getItem("jarvis-phone-target"); return t === "cloud" || t === "orgo" ? t : "local"; } catch { return "local"; } });
+  const [tab, setTab] = useState<"talk" | "tasks" | "browser" | "mac">("talk");
   const { status, error, refresh } = useAssistant(transport, visible);
   const voice = useLiveVoice(transport, target, false, false);
   const [text, setText] = useState(""), [message, setMessage] = useState(""), [busy, setBusy] = useState(false);
@@ -60,6 +61,11 @@ function ConnectedPhone({ transport, onUnpair }: { transport: Transport; onUnpai
   const active = tasks.filter((t) => ["running", "queued", "waiting_for_user"].includes(t.status)).length;
   const approvals = tasks.filter((t) => !!t.approval).length;
   const connected = !!status && !error;
+  const chooseTarget = async (next: WorkTarget) => {
+    if (next === target) return;
+    if (voice.state === "on") await voice.changeTarget(next);
+    setTarget(next); try { localStorage.setItem("jarvis-phone-target", next); } catch {}
+  };
   const send = async () => {
     const goal = text.trim(); if (!goal || busy || !connected) return;
     if (request.current?.text !== goal || request.current?.target !== target) request.current = { text: goal, target, id: crypto.randomUUID() };
@@ -70,9 +76,10 @@ function ConnectedPhone({ transport, onUnpair }: { transport: Transport; onUnpai
   };
   return <>
     <div className={`phone-connection ${connected ? "connected" : ""}`} role="status"><span />{connected ? "Connected to your Mac" : "Reconnecting to your Mac…"}<button onClick={() => { if (voice.state !== "off") { setMessage("End your conversation before disconnecting this phone."); return; } setBusy(true); void phoneFetch("logout", {}).then(onUnpair).catch((e: Error) => setMessage(e.message)).finally(() => setBusy(false)); }} disabled={busy}>Disconnect</button></div>
-    <nav className="phone-tabs" aria-label="Jarvis views">{(["talk", "tasks", "browser"] as const).map((t) => <button key={t} aria-current={tab === t ? "page" : undefined} onClick={() => setTab(t)}>{t === "talk" ? "Talk" : t === "tasks" ? `Tasks${approvals ? ` · ${approvals} to review` : active ? ` · ${active}` : ""}` : "Browser"}</button>)}</nav>
+    <nav className="phone-tabs" aria-label="Jarvis views">{(["talk", "tasks", "mac", "browser"] as const).map((t) => <button key={t} disabled={voice.state === "connecting" || busy} aria-current={tab === t ? "page" : undefined} onClick={() => { void (t === "mac" ? chooseTarget("local") : t === "browser" ? chooseTarget("cloud") : Promise.resolve()).then(() => setTab(t)).catch((e: Error) => setMessage(e.message)); }}>{t === "talk" ? "Talk" : t === "tasks" ? `Tasks${approvals ? ` · ${approvals} to review` : active ? ` · ${active}` : ""}` : t === "mac" ? "Mac" : "Browser"}</button>)}</nav>
     <section className="phone-content">
-      <label className="phone-target">WORK IN<select aria-label="Work environment" value={target} disabled={voice.state === "connecting" || busy} onChange={(e) => { const next = e.target.value as WorkTarget; if (voice.state === "on") { void voice.changeTarget(next).then(() => setTarget(next)).catch((e: Error) => setMessage(e.message)); } else setTarget(next); }}><option value="cloud">Jarvis browser</option><option value="local">My computer at home</option>{status?.connections.orgo && <option value="orgo">Co-founder’s computer</option>}</select></label>
+      <label className="phone-target">WORK IN<select aria-label="Work environment" value={target} disabled={voice.state === "connecting" || busy} onChange={(e) => { void chooseTarget(e.target.value as WorkTarget).catch((e: Error) => setMessage(e.message)); }}><option value="local">My computer at home</option><option value="cloud">Jarvis browser</option>{status?.connections.orgo && <option value="orgo">Co-founder’s computer</option>}</select></label>
+      {target === "local" && <p className="phone-mac-readiness">Mac controls {status?.connections.computer ? "available" : "unavailable — check Cua Driver permissions on the Mac"} · Chrome {status?.connections.chrome ? "connected" : "not connected"}. Open the Mac tab to verify the live picture.</p>}
       {tab === "talk" && <>
         <section className="phone-conversation"><div className="phone-kicker">AT YOUR SERVICE</div><h1>{voice.state === "on" ? "I’m listening." : "What’s on your mind?"}</h1><p>{target === "local" ? "Jarvis will work on your Mac at home." : target === "orgo" ? "Jarvis will work on the co-founder’s computer." : "Jarvis will look things up and work in its own browser."}</p>
           <VoiceOrb state={voice.state} speaking={voice.speaking} userSpeaking={voice.userSpeaking} visible={visible} />
@@ -86,6 +93,7 @@ function ConnectedPhone({ transport, onUnpair }: { transport: Transport; onUnpai
       </>}
       {tab === "tasks" && <section className="phone-tasks" aria-label="Saved tasks"><div className="phone-section-title"><h1>Your tasks</h1><button onClick={() => void refresh()}>Refresh</button></div><p>Shared with Jarvis on your Mac.</p>{!tasks.length && <div className="phone-empty">Nothing here yet. Give Jarvis a task to get started.</div>}{tasks.slice(0, 30).map((task) => <PhoneTask key={task.id} task={task} disabled={busy || !connected} act={act} />)}</section>}
       {tab === "browser" && <section className="phone-browser"><h1>Jarvis’s browser</h1><p>The same cloud browser you see on your Mac.</p><CloudBrowser transport={transport} visible={visible} running={tasks.some((t) => t.target === "cloud" && t.status === "running")} /></section>}
+      {tab === "mac" && <PhoneMacScreen transport={transport} visible={visible} />}
       {(voice.error || error || message) && <p className="phone-error" role="status">{voice.error || error || message}</p>}
       <footer className="phone-footnote">Your Mac must stay awake with Jarvis running. Connected apps and approvals work just as they do at home.</footer>
     </section>

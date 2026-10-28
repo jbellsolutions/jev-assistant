@@ -26,6 +26,8 @@ import { hasHandle, type SecretVault } from "./secrets.js";
 export interface Hands {
   /** The Mac app in front, through cua-driver. */
   mac: Executor | null;
+  /** Read-only visual fallback when a sheet or system dialog cannot expose an app-window tree. */
+  screen?: Executor | null;
   /** the user's own Chrome, through the bridge extension: the tab he is looking at. */
   chrome: Executor | null;
   /** The same Chrome, in Jev's own minimized window (same logins, never on screen). The brain's
@@ -351,23 +353,40 @@ export function buildTools(hands: Hands, ctx: ToolContext): ToolSet {
   return {
     mac_read: tool({
       description:
-        'Read a Mac app: the elements you can act on (each with an id), the text on screen (messages, lists, documents) and its menus. Pass app (e.g. "Slack") to read that app IN THE BACKGROUND — it is not brought forward and the user\'s screen and mouse are untouched. Omit app for the app in front. query narrows the read to matching rows (e.g. "unread").',
+        'Inspect the connected Mac. Read a Mac app: elements, text and menus. Set screen:true to SEE a screenshot of that window as well, especially when asked what you can see. Pass app (e.g. "Slack") to read that app IN THE BACKGROUND. Omit app for the app in front. query narrows the read to matching rows.',
       inputSchema: z.object({
         app: z.string().optional().describe("The app by name, e.g. Slack. Read in the background."),
         query: z.string().optional().describe("Only rows containing this text, e.g. unread"),
+        screen: z.boolean().optional().describe("Include an actual screenshot of this Mac window to inspect visually."),
       }),
       execute: async (input) => {
         if (stopped()) return "Stopped.";
-        if (!hands.mac) return "Mac control is off on this machine.";
-        if (hands.mac.ready === false) return "The Mac isn't reachable right now (cua-driver is not answering).";
-        if (hasMacApps(hands.mac)) {
+        if (!hands.mac || hands.mac.ready === false) {
+          const reason = !hands.mac ? "Mac app control is off on this machine." : "Mac accessibility control is unavailable right now.";
+          if (input.screen && hands.screen) { const image = await hands.screen.screenshot(); if (image?.length) return { text: `${reason} This is a picture of the Mac primary display only; it does not establish app-control permission.`, jpegBase64: Buffer.from(image).toString("base64") }; }
+          return reason;
+        }
+        let text: string;
+        try { if (hasMacApps(hands.mac)) {
           const r = await hands.mac.readApp(input.app ?? null, input.query ? { query: input.query } : {});
           lastMac = r.snapshot;
-          return renderMacRead(r);
+          text = renderMacRead(r);
+        } else { lastMac = await hands.mac.snapshot(); text = renderSnapshot(lastMac); } }
+        catch (error) {
+          if (!input.screen) throw error;
+          lastMac = null; text = "The app-window accessibility read was unavailable. The following is an observation of the Mac display; do not invent element IDs.";
         }
-        lastMac = await hands.mac.snapshot();
-        return renderSnapshot(lastMac);
+        if (input.screen) {
+          let image = lastMac ? await hands.mac.screenshot().catch(() => null) : null;
+          if (!image?.length && hands.screen) { image = await hands.screen.screenshot(); if (image?.length) text += "\nVisual source: the Mac primary display, including any dialogs, not an isolated app window."; }
+          if (image?.length) return { text, jpegBase64: Buffer.from(image).toString("base64") };
+          return `${text}\nScreenshot unavailable: ${hands.mac.frameProblem || "check Screen Recording permission on the Mac"}. This is an accessibility-text observation, not a picture.`;
+        }
+        return text;
       },
+      toModelOutput: ({ output }: { output: Seen | string }) => isSeen(output)
+        ? { type: "content" as const, value: [{ type: "text" as const, text: output.text }, { type: "file" as const, mediaType: "image/jpeg", data: { type: "data" as const, data: output.jpegBase64 } }] }
+        : { type: "text" as const, value: String(output) },
     }),
 
     mac_act: tool({

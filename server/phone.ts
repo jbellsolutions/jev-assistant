@@ -68,8 +68,8 @@ export class PhoneAccess {
       const device = session(req);
       if (!device) return void res.status(401).json({ error: "Pair this phone with Jarvis on your Mac." });
       // Internal worker callbacks, settings, arbitrary API and Chrome/Mac sockets are never tunneled.
-      const read = req.method === "GET" && /^\/(?:status|browser|tasks\/[a-zA-Z0-9-]+\/live-view)$/.test(req.path);
-      const write = req.method === "POST" && /^\/(?:command|tasks\/[a-zA-Z0-9-]+\/(?:control|approve)|browser\/(?:open|close)|voice\/(?:token|end|connection|target))$/.test(req.path);
+      const read = req.method === "GET" && /^\/(?:status|browser|mac\/screen|tasks\/[a-zA-Z0-9-]+\/live-view)$/.test(req.path);
+      const write = req.method === "POST" && /^\/(?:command|mac\/input|tasks\/[a-zA-Z0-9-]+\/(?:control|approve)|browser\/(?:open|close)|voice\/(?:token|end|connection|target))$/.test(req.path);
       if (!read && !write) return void res.status(403).json({ error: "This action is only available on the Mac." });
       res.locals.phoneDeviceId = device.id;
       res.locals.phoneAuthorized = () => this.saved.devices.some((d) => d.id === device.id && d.expiresAt > Date.now());
