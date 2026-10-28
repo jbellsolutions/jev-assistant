@@ -1,24 +1,41 @@
-# Jev on iPhone
+# Jarvis on iPhone
 
-The easiest next version is an iPhone web companion saved to your Home Screen, using the same LiveKit voice connection and saved tasks as your Mac. A separate App Store app is not needed for that approach.
+Jarvis 1.2 includes an iPhone web companion connected to the **same desktop app, saved tasks and approvals** on your Mac. Choose **Jarvis browser** to work in its own Browser Use Cloud browser, or **My computer at home** to use your Mac and connected Chrome. An optional configured co-founder computer is also available.
 
-**Phase 1 is the Mac desktop release. It does not yet provide a working phone URL.** Installing the Mac package, opening the GitHub repo on iPhone, or bookmarking localhost will not connect your phone to Jev.
+Keep the Mac awake, online and running Jarvis. Voice ends when the phone app leaves the foreground; saved tasks continue on the Mac. This release does not promise background iPhone voice or operation of a sleeping Mac.
 
-## What needs to be added
+## Connect once
 
-1. A private HTTPS connection to the running Mac, with explicit device pairing, revocation and session authentication. Tailscale Serve is one option restricted to your own devices; it is not enabled by this release.
-2. An iPhone layout with a large Talk/End button, task progress and approvals. Provider keys stay on the Mac.
-3. Real iPhone tests for microphone permission, audio playback, interruption, disconnection and recovery. Locking the screen or switching apps can suspend web audio.
+1. Install Jarvis 1.2 on your Mac.
+2. Provide an HTTPS tunnel to the separate phone listener, normally **127.0.0.1:3112**. Do not forward the desktop port (3111), Chrome bridge or other local services.
+3. In Jarvis on Mac, open **Connect iPhone**, enter the tunnel's HTTPS address (no path) and choose **Save phone address**.
+4. Choose **Create pairing code**. On your iPhone, open the phone link and enter that code within five minutes. A code works once; creating another replaces it.
+5. In Safari, choose **Share → Add to Home Screen → Open as Web App**, name it **Jarvis**, and add it. The Home Screen app may have its own cookie storage; if asked, pair it once more with a new code.
 
-Do not expose the current companion port publicly or remove its origin/authentication checks as a shortcut. Desktop checks are not a substitute for phone pairing.
+On the phone, **Talk** offers the existing LiveKit conversation and typed tasks. **Tasks** shows shared progress, results, approvals, pause/resume, corrections and cancellation. **Browser** shows the same cloud browser as the desktop, with direct interaction when the provider viewer is available. The phone does not stream the Mac desktop or provide arbitrary remote mouse/keyboard control; Jarvis performs requested Mac work through its existing worker and permissions.
 
-The Mac must stay awake with Jev running for Mac/Chrome control. A later always-on host can keep cloud tasks available when the Mac sleeps, but cannot operate a sleeping Mac.
+If Safari blocks sound, tap **Tap to enable sound**. A microphone permission prompt is expected when starting voice. End a desktop conversation before starting one on the phone; there is one active conversation at a time. Changing the work environment changes the next voice/typed request, not tasks already running.
 
-## Save it once the secure phone URL exists
+## Tailscale Serve example
 
-1. Open your personal Jev HTTPS link in **Safari** on iPhone.
-2. Pair with Jev on the Mac and allow the microphone when choosing Talk.
-3. Tap **Share → Add to Home Screen**. Enable **Open as Web App**, name it **Jev**, and tap **Add**.
-4. Launch the Jev icon and keep it in the foreground for voice conversation.
+Install Tailscale on the Mac and iPhone and sign in to the same private network. With an unused HTTPS port, run on the Mac:
 
-See [Apple's iPhone web-app guide](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios) and [Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve). This is a Phase 2 plan, not a claim that mobile access was installed or tested in Phase 1.
+```sh
+tailscale serve --bg --https=9443 http://127.0.0.1:3112
+```
+
+Use the HTTPS address printed by Tailscale, including `:9443`, in **Connect iPhone**. Open that address with `/phone` on the iPhone while Tailscale is connected. This exposes the phone listener to your private Tailscale network, not the public internet. Preserve existing Serve configuration; use an unused port rather than resetting other services.
+
+An authenticated Cloudflare relay or another trusted HTTPS reverse proxy can forward the same phone listener instead. Preserve the original `Host`, `Origin`, cookies and custom request headers, and terminate TLS before forwarding to loopback. Configure the exact external HTTPS origin in Jarvis. Tunnel installation, provider accounts and access policies are separate from Jarvis.
+
+See [Tailscale Serve](https://tailscale.com/docs/reference/tailscale-cli/serve) and [Apple's Home Screen app instructions](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios).
+
+## Remove access
+
+Choose **Remove device** in the Mac's **Connect iPhone** panel, or **Disconnect** on the phone. This invalidates its cookie and requests shutdown of its active voice room; saved tasks remain shared and continue. **Disable phone access** removes all devices. Changing the configured HTTPS address also clears existing pairings. Paired access expires after 30 days; pair again when prompted. Safari and the Home Screen app can appear as separate paired devices.
+
+Phone cookies are Secure, HttpOnly and SameSite=Strict. Only cookie hashes are saved privately on the Mac; provider keys and the desktop/Chrome pairing token never go to the phone. Pairing codes are memory-only, expire in five minutes and allow at most ten guesses. The phone gateway accepts only the configured host/origin and an authenticated route allowlist; desktop WebSockets, private settings and voice-worker callbacks are excluded. No service worker caches task records or results. A tunnel is still a trusted boundary: configure only this listener and protect the tunnel account.
+
+## Verification boundary
+
+Automated tests exercise pairing, expiry, revocation, origin checks, shared task execution and retry IDs. The browser smoke uses real HTTPS with synthetic tasks and checks iPhone layouts in Chromium and WebKit, approval controls, reload and connection errors. These are desktop browser engines at phone viewport sizes, **not physical iPhone microphone/audio validation**. Test foreground voice, interruption, lock/switch behavior and cellular reconnection on your own iPhone before relying on them. The cloud browser provider's touch viewer and external websites can impose additional mobile limitations.

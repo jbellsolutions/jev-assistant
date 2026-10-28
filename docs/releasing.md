@@ -10,6 +10,7 @@ npx playwright install chromium
 npm run build:keys
 npm run build:audio-out
 npm run check
+npm run smoke:phone
 npm run release:mac
 npm run smoke:package
 ```
@@ -34,6 +35,8 @@ Signing guide: [Electron code signing](https://www.electronjs.org/docs/latest/tu
 ## GitHub
 
 The CI workflow checks and builds on an Apple Silicon macOS runner, then uploads unsigned preview artifacts. It intentionally has no provider keys or account credentials. Public GitHub-hosted runner labels and architecture are documented by [GitHub](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+
+The phone smoke needs `npx playwright install chromium webkit` and OpenSSL. It uses disposable profiles, a local self-signed HTTPS proxy and synthetic task workers. It does not use the owner's accounts. See docs/phone.md for the physical iPhone test boundary.
 
 Before publishing a release:
 

@@ -4,7 +4,7 @@ Formerly Jev. A voice assistant that can work in Chrome, on your Mac, in its own
 
 ## Download and install
 
-**[Download the Mac installer](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.1.1-preview.1)** · **[Start here](docs/start-here.md)**
+**[Download the Mac installer](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.2.1-preview.1)** · **[Start here](docs/start-here.md)**
 
 Open the `.pkg`, follow the Mac installer, and launch Jarvis from Applications. It includes the Mac-control helper. End users do not need Node, Python, a terminal or coding tools.
 
@@ -30,7 +30,7 @@ Already installed? Quit Jev or Jarvis, install the newer preview, then reopen it
 
 ## iPhone
 
-The simplest next step is a secure web companion saved using **Safari → Share → Add to Home Screen**. A phone URL, device pairing and real iPhone testing are not included in this desktop release. [Phone access and the next step](docs/phone.md).
+Jarvis 1.2 includes a phone companion saved using **Safari → Share → Add to Home Screen**. It connects to this Mac through your HTTPS tunnel, shares tasks and approvals, and lets you choose Jarvis’s own browser or your computer at home. Open **Connect iPhone** on the Mac to configure the link and pair a device. The Mac must stay awake with Jarvis running. [Phone setup and testing limits](docs/phone.md).
 
 ## For developers
 

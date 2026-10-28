@@ -24,6 +24,17 @@ try {
   const errors = []; page.on("pageerror", (e) => errors.push(e.message));
   await page.getByText("At your service", { exact: true }).waitFor();
   await page.getByRole("img", { name: "Ready to talk", exact: true }).waitFor();
+  await page.getByText("Connect iPhone", { exact: true }).click();
+  await page.getByLabel("Phone HTTPS address").fill("https://phone.fixture.test");
+  await page.getByRole("button", { name: "Save phone address", exact: true }).click();
+  await page.getByRole("button", { name: "Create pairing code", exact: true }).click();
+  await page.locator(".phone-pairing strong").waitFor();
+  assert.match(await page.locator(".phone-pairing strong").innerText(), /^[A-F0-9]{4}(?:-[A-F0-9]{4}){2}$/);
+  assert.ok((await get("/phone-access/status")).port > 0);
+  await page.getByRole("button", { name: "Disable phone access", exact: true }).click();
+  await page.getByRole("button", { name: "Create pairing code", exact: true }).waitFor({ state: "detached" });
+  await page.getByText("Connect iPhone", { exact: true }).click();
+  console.log("PASS: desktop phone configuration, one-use code presentation and disabling access.");
   await page.getByText("Connection settings", { exact: true }).click();
   await page.getByRole("button", { name: "Edit connections", exact: true }).click();
   await page.getByRole("dialog", { name: "Your connections" }).waitFor();

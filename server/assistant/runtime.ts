@@ -29,7 +29,7 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
   const route = createRequestRouter(env);
   const apps = appConnections(env);
   const files = new AttachmentStore();
-  const voiceRooms = new Map<string, { owner: string; createdAt: number; connection: VoiceConnection; target: WorkTarget; expires: number; seen: Map<string, string>; approval?: { taskId: string; requestId: string | null }; requests: Map<string, Promise<{ message: string }>> }>();
+  const voiceRooms = new Map<string, { owner: string; phoneDeviceId?: string; createdAt: number; connection: VoiceConnection; target: WorkTarget; expires: number; seen: Map<string, string>; approval?: { taskId: string; requestId: string | null }; requests: Map<string, Promise<{ message: string }>> }>();
   const leases = new VoiceLeases(env.JEV_HOME || path.join(homedir(), ".jev-assistant"));
   const inheritedRooms = new Set(leases.list());
   let recovery: Promise<void> | null = null;
@@ -162,14 +162,16 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
       if (!/^wss?:\/\//.test(url)) throw new Error("LIVEKIT_URL must be a ws:// or wss:// server URL");
       const host = url.replace(/^ws/, "http");
       leases.add(room);
-      voiceRooms.set(room, { owner, createdAt: Date.now(), connection: { state: "connecting" }, target: req.body.target, expires: Date.now() + 35 * 60000, seen: new Map(), requests: new Map() });
+      voiceRooms.set(room, { owner, phoneDeviceId: res.locals.phoneDeviceId, createdAt: Date.now(), connection: { state: "connecting" }, target: req.body.target, expires: Date.now() + 35 * 60000, seen: new Map(), requests: new Map() });
       try { await new AgentDispatchClient(host, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET, { requestTimeout: 4 }).createDispatch(room, voiceAgentName(env)); }
       catch { voiceRooms.delete(room); inheritedRooms.add(room); await recoverVoice().catch(() => {}); throw new Error("Could not dispatch the voice agent. Check LiveKit credentials and worker status."); }
+      if (res.locals.phoneAuthorized && !res.locals.phoneAuthorized()) { await endRoom(room); throw new Error("This phone was disconnected while voice was starting"); }
       res.json({ url, token: await token.toJwt(), room });
       } finally { voiceCreating = false; }
     }));
     api.post("/voice/end", handle(async (req, res) => {
       const room = String(req.body?.room ?? "");
+      if (res.locals.phoneDeviceId && voiceRooms.get(room)?.phoneDeviceId !== res.locals.phoneDeviceId) throw new Error("This conversation belongs to another device");
       if (voiceRooms.has(room) || inheritedRooms.has(room)) {
         await endRoom(room);
       }
@@ -177,12 +179,14 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     }));
     api.post("/voice/target", handle((req, res) => {
       const session = voiceRooms.get(String(req.body?.room));
+      if (res.locals.phoneDeviceId && session?.phoneDeviceId !== res.locals.phoneDeviceId) throw new Error("This conversation belongs to another device");
       if (!session || !["local", "cloud", "orgo"].includes(req.body?.target)) throw new Error("Choose a connected voice session and environment");
       session.target = req.body.target; session.approval = undefined; session.seen.clear();
       res.json({ ok: true });
     }));
     api.post("/voice/connection", handle((req, res) => {
       const session = voiceRooms.get(String(req.body?.room));
+      if (res.locals.phoneDeviceId && session?.phoneDeviceId !== res.locals.phoneDeviceId) throw new Error("This conversation belongs to another device");
       if (!session) throw new Error("Voice conversation ended");
       res.json(session.connection);
     }));
@@ -233,6 +237,7 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     app.use("/assistant", api);
   }
   return { queue, status, command, mount, recoverVoice, recoverCloud: () => cloud.recover(queue.list().filter((t) => t.target === "cloud" && ["queued", "running"].includes(t.status)).flatMap((t) => t.providerBrowserId ? [t.providerBrowserId] : [])),
+    async endPhoneVoice(deviceId: string) { for (const [room, session] of voiceRooms) if (session.phoneDeviceId === deviceId) await endRoom(room); },
     canRestart() { return !voiceCreating && !queue.list().some((t) => ["running", "queued", "waiting_for_user"].includes(t.status)) && ![...voiceRooms.values()].some((s) => s.expires > Date.now()); },
     setPaused(value: boolean) { paused = value; queue.setEnabled(!value); },
     setVoiceWorker(value: AssistantStatus["voiceWorker"], error?: string) { voiceWorker = value; voiceError = error; },
