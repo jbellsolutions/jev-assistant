@@ -6,6 +6,7 @@ import type { useLiveVoice } from "../hooks/useLiveVoice.ts";
 import { WORK_TARGET_LABELS } from "../../../core/assistant.ts";
 import { ConnectionEditor } from "./ConnectionEditor.tsx";
 import { ConnectedApps } from "./ConnectedApps.tsx";
+import { VoiceInput } from "./VoiceInput.tsx";
 import { VoiceOrb } from "./VoiceOrb.tsx";
 import { Permissions } from "./Permissions.tsx";
 import { PhoneSettings } from "./PhoneSettings.tsx";
@@ -40,11 +41,12 @@ export function AssistantPanel({ status, error, target, onTarget, voice, transpo
     </label>
     <div className="connection-strip"><span className={c?.chrome ? "ready" : ""}>Chrome {c?.chrome ? "connected" : "not connected"}</span><span className={c?.computer ? "ready" : ""}>Mac {c?.computer ? "connected" : "not connected"}</span></div>
     <div className={`live-voice ${voice.state}`}>
-      <VoiceOrb state={voice.state} speaking={voice.speaking} userSpeaking={voice.userSpeaking} visible={onScreen} />
+      <VoiceOrb state={voice.state} speaking={voice.speaking} userSpeaking={voice.userSpeaking} inputProblem={voice.inputProblem} visible={onScreen} />
       <button className="live-talk" type="button" onClick={() => void (voice.state === "off" ? voice.start() : voice.stop())}>{voice.state === "connecting" ? "Cancel connection" : voice.state === "on" ? "End conversation" : "Talk to Jarvis"}</button>
       {voice.needsAudio && <button type="button" onClick={() => void voice.enableAudio()}>Tap to enable sound</button>}
       <span>{voice.state === "on" ? "Live conversation · speak and interrupt naturally" : voice.state === "connecting" ? "Connecting LiveKit and GPT-Live…" : "Two-way live voice · no recording or Send button"}</span>
     </div>
+    <VoiceInput voice={voice} />
     {voice.transcripts.length > 0 && <div className="voice-transcript" aria-live="polite">{voice.transcripts.slice(-3).map((t) => <p key={t.id}><b>{t.who}:</b> {t.text}</p>)}</div>}
     {(voice.error || actionError || error) && <p className="assistant-error" role="status">{voice.error || actionError || error}</p>}
     <details className="connection-settings" onToggle={(e) => setEditingPermissions(e.currentTarget.open)}><summary>Permissions</summary>{editingPermissions && <Permissions transport={transport} />}</details>

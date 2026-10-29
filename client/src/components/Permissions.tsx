@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import type { Transport } from "../transport.ts";
 import { assistantFetch } from "../hooks/useAssistant.ts";
-type Permission = { slug: string; label: string; connected: boolean; allowed: boolean };
 export function Permissions({ transport }: { transport: Transport }) {
-  const [actions, setActions] = useState<Permission[]>([]), [error, setError] = useState(""), [busy, setBusy] = useState(false);
-  const refresh = () => assistantFetch<{ actions: Permission[] }>(transport, "/permissions").then((r) => setActions(r.actions)).catch((e) => setError(e.message));
-  useEffect(() => { void refresh(); }, [transport]);
-  const change = async (slug: string, allow: boolean) => {
+  const [enabled, setEnabled] = useState<boolean | null>(null), [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  useEffect(() => { let active = true; void assistantFetch<{ enabled: boolean }>(transport, "/permissions").then((r) => { if (active) setEnabled(r.enabled); }).catch((e) => { if (active) setError(e.message); }); return () => { active = false; }; }, [transport]);
+  const change = async () => {
+    if (enabled === null) return;
     setBusy(true); setError("");
-    try { await assistantFetch(transport, "/permissions", { slug, allow }); await refresh(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Could not save permission"); } finally { setBusy(false); }
+    try { const r = await assistantFetch<{ enabled: boolean }>(transport, "/permissions", { enabled: !enabled }); setEnabled(r.enabled); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not save permissions"); } finally { setBusy(false); }
   };
-  return <div className="permissions"><p>Allowed actions run without another confirmation on this connected account. Other actions ask first; you can answer by voice.</p>
-    {actions.map((p) => <label key={p.slug}><input type="checkbox" checked={p.allowed} disabled={!p.connected || busy} onChange={(e) => void change(p.slug, e.target.checked)} />{p.label}{!p.connected && <small>Connect one account first</small>}</label>)}
+  return <div className="permissions"><p><strong>Permissions enabled: {enabled === null ? "Loading…" : enabled ? "Yes" : "No"}</strong></p>
+    <p>{enabled === false ? "Enable permissions to let Jarvis carry out your tasks. Turning permissions off pauses active tasks." : "Jarvis can carry out your requests on the selected computer, in the browser and through connected apps. Your Mac and account connections must be available."}</p>
+    <button type="button" disabled={enabled === null || busy} onClick={() => void change()}>{busy ? "Saving…" : enabled ? "Turn permissions off" : "Enable permissions"}</button>
     {error && <p role="status">{error}</p>}
   </div>;
 }

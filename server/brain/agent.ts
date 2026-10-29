@@ -140,6 +140,8 @@ export interface AgentBrainOptions {
   /** Connectors (Composio): a named list of app actions, loaded once, on first use. */
   apps?: AppsLoader | null;
   appWriteAllowed?: (slug: string, account: string) => boolean;
+  /** Owner setting for requested work; never inherited by co-founder-originated runs. */
+  permissionsEnabled?: () => boolean;
   /** Enforce the selected execution environment before exposing tools to the model. */
   ownTools?: readonly string[];
   /** The ongoing chat; in memory only when not given. */
@@ -256,6 +258,7 @@ export class AgentBrain implements BrainWithHealth {
   /** Ask the user before a write. False on "no", on Stop, and on the wall clock. */
   private ask(run: Run, signal: AbortSignal, summary: string): Promise<boolean> {
     if (signal.aborted) return Promise.resolve(false);
+    if (run.from !== "cofounder" && this.opts.permissionsEnabled?.()) return Promise.resolve(true);
     const requestId = `ask_${run.id}_${++this.askSeq}`;
     this.opts.log?.write(run.id, { type: "ask", summary });
     return new Promise<boolean>((resolve) => {

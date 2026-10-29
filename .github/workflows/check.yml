@@ -23,6 +23,7 @@ jobs:
       - run: node scripts/scan-secrets.mjs
       - run: npm run build:keys && npm run build:audio-out
       - run: npm run check
+      - run: npm run smoke:voice-input
       - run: npm run smoke:phone
       - run: npm run build:icon
       - run: npm run release:mac

@@ -4,7 +4,7 @@ Jarvis is a desktop assistant you can talk to naturally. It can work in Chrome, 
 
 ## Install
 
-1. Download **Jarvis-1.3.1-mac-arm64.pkg** from the [download page](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.3.1-preview.1).
+1. Download **Jarvis-1.4.0-mac-arm64.pkg** from the [download page](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.4.0-preview.1).
 2. Open the installer and follow the Mac's instructions. It installs **Jarvis** and **Cua Driver**, the helper for Mac control, in Applications. No coding tools or terminal are needed.
 3. Open **Jarvis** from Applications.
 
@@ -78,3 +78,9 @@ Choose **Your screen** for the Mac or your connected Chrome tab, or **Co-founder
 - **Update:** quit Jarvis, run the newer installer, and reopen it. Settings and tasks stay in your home folder. Reload the Jarvis extension once to use its new code. This preview has manual app updates.
 
 For iPhone, open **Connect iPhone** on the Mac and follow [Phone setup](phone.md). Pair your phone, then save Jarvis to your Home Screen. Select **Jarvis browser** for cloud research/work or **My computer at home** for your Mac. Tunnel setup is separate; this installer does not create a public URL.
+
+## Microphone and permissions
+
+Permissions shows **Permissions enabled: Yes** for the work you request. There are no app-by-app permission checkboxes. **Turn permissions off** pauses active tasks and blocks new work until enabled again. Your selected environment still determines which computer or browser Jarvis uses. macOS may require its own Microphone, Accessibility and Screen Recording grants; the app cannot replace those system dialogs.
+
+Choose the input under **Microphone**, start a conversation and speak. The input meter should move and report that it is receiving sound. If it stays flat, select the microphone you use or press **Retry microphone**. The retry recreates audio capture while keeping the conversation open. Allow Jarvis under System Settings → Privacy & Security → Microphone if access was denied.

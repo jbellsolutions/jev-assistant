@@ -4,7 +4,7 @@ Formerly Jev. A voice assistant that can work in Chrome, on your Mac, in its own
 
 ## Download and install
 
-**[Download the Mac installer](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.3.1-preview.1)** · **[Start here](docs/start-here.md)**
+**[Download the Mac installer](https://github.com/jbellsolutions/jev-assistant/releases/tag/v1.4.0-preview.1)** · **[Start here](docs/start-here.md)**
 
 Open the `.pkg`, follow the Mac installer, and launch Jarvis from Applications. It includes the Mac-control helper. End users do not need Node, Python, a terminal or coding tools.
 
@@ -15,18 +15,18 @@ Bring your own OpenAI, LiveKit, TypeSafe and Browser Use connections. Orgo and C
 ## What you can do
 
 - Start a continuous conversation with **Talk to Jarvis**, interrupt naturally, and end it without cancelling tasks.
-- See a purple voice orb react to the conversation, with streaming transcripts underneath. The visual pauses when hidden.
+- See a purple voice orb react to the conversation, with streaming transcripts underneath. Choose a microphone, check its actual input level and reconnect it without ending the conversation. The visual pauses when hidden.
 - Give multi-step tasks and see saved progress, results, approvals, pause/resume and corrections.
 - Choose **My computer**, **Jarvis browser**, or **Co-founder's computer** explicitly.
 - Use your Chrome login sessions through the extension, or an independent Browser Use Cloud browser.
-- Use optional Slack, Gmail and ClickUp API tools through Composio, with optional account-specific remembered permissions and spoken confirmation for other writes.
+- Use optional Slack, Gmail and ClickUp API tools through Composio, with one Permissions enabled setting for requested work.
 - Drag the dividers to resize browser versus chat and voice/tasks versus conversation. Sizes are remembered.
 - Click and type directly in the local screen and Jarvis’s separate Browser Use browser. Follow-up cloud tasks reuse the live session.
 - Switch between a larger workspace and compact panel with **↗ Resize**. Your window size is remembered.
 
 Local work requires this Mac to remain awake with Jarvis running. Task completion is a worker result with evidence to review, not a guarantee of arbitrary external outcomes.
 
-Already installed? Quit Jev or Jarvis, install the newer preview, then reopen it. Your settings and tasks are preserved. Reload the Jarvis extension once in Chrome's Extensions page to activate its updated code. See [Jarvis 1.1 changes](docs/jarvis-1.1.md).
+Already installed? Quit Jev or Jarvis, install the newer preview, then reopen it. Your settings and tasks are preserved. Reload the Jarvis extension once in Chrome's Extensions page to activate its updated code. See [Jarvis 1.4 changes](docs/jarvis-1.4.md).
 
 ## iPhone
 

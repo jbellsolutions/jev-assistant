@@ -168,6 +168,29 @@ describe("every run is bounded", () => {
 });
 
 describe("writes ask first", () => {
+  it("uses owner permissions for browser actions and honors revocation on the next action", async () => {
+    const { chrome, hands: h } = hands();
+    let enabled = true;
+    const brain = new AgentBrain({ model: scripted([call("chrome", { action: "read_elements" }), call("chrome", { action: "click", element_id: "e0" }), say("Done")]), modelId: "test", hands: h, instructions: () => "Perform the requested work", apps: null, permissionsEnabled: () => enabled });
+    const events = await collect(await brain.send("send it"));
+    expect(events.some((e) => e.kind === "approval")).toBe(false);
+    expect(chrome.executed).toHaveLength(1);
+    enabled = false;
+    const model = scripted([call("chrome", { action: "read_elements" }), call("chrome", { action: "click", element_id: "e0" }), say("Stopped")]);
+    const revoked = new AgentBrain({ model, modelId: "test", hands: h, instructions: () => "test", apps: null, permissionsEnabled: () => enabled });
+    const run = await revoked.send("send it");
+    const after = await collect(run, (e) => { if (e.kind === "approval") void revoked.approve(run.id, "deny", e.requestId); });
+    expect(after.some((e) => e.kind === "approval")).toBe(true);
+    expect(chrome.executed).toHaveLength(1);
+  });
+  it("does not give co-founder-originated requests the owner's enabled permissions", async () => {
+    const { chrome, hands: h } = hands();
+    const brain = new AgentBrain({ model: scripted([call("chrome", { action: "read_elements" }), call("chrome", { action: "click", element_id: "e0" }), say("Stopped")]), modelId: "test", hands: h, instructions: () => "test", apps: null, permissionsEnabled: () => true });
+    const run = await brain.send("send it", { from: "cofounder" });
+    const events = await collect(run, (e) => { if (e.kind === "approval") void brain.approve(run.id, "deny", e.requestId); });
+    expect(events.some((e) => e.kind === "approval")).toBe(true);
+    expect(chrome.executed).toEqual([]);
+  });
   it("waits for a yes before clicking Send, then does it", async () => {
     const { chrome, hands: h } = hands();
     const brain = brainWith(scripted([call("chrome", { action: "read_elements" }), call("chrome", { action: "click", element_id: "e0" }), say("Sent.")]), h);

@@ -57,7 +57,7 @@ export class TaskQueue {
   subscribe(fn: () => void): () => void { this.listeners.add(fn); return () => this.listeners.delete(fn); }
   start(): void { this.kick(); }
   async settled(id: string): Promise<void> { if (this.active?.id === id) await this.execution; }
-  setEnabled(enabled: boolean): void { this.enabled = enabled; if (enabled) this.kick(); else if (this.active) void this.control(this.active.id, "pause"); }
+  setEnabled(enabled: boolean, pauseActive = true): void { this.enabled = enabled; if (enabled) this.kick(); else if (pauseActive && this.active) void this.control(this.active.id, "pause"); }
   submit(goal: string, target: WorkTarget, requestId?: string, attachments?: WorkTask["attachments"]): WorkTask {
     if (this.closed) throw new Error("Task service is shutting down");
     goal = goal.trim();

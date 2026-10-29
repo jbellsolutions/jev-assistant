@@ -60,6 +60,18 @@ try {
   await page.getByRole("button", { name: "Talk to Jarvis", exact: true }).waitFor();
   await page.unroute("**/assistant/voice/token"); await page.unroute("**/assistant/voice/end");
   console.log("PASS: cancelling a pending voice connection releases its late room without opening a microphone.");
+  await page.getByText("Permissions", { exact: true }).click();
+  await page.getByText("Permissions enabled: Yes", { exact: true }).waitFor();
+  assert.equal(await page.locator('.permissions input[type="checkbox"]').count(), 0);
+  await page.getByRole("button", { name: "Turn permissions off", exact: true }).click();
+  await page.getByText("Permissions enabled: No", { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Enable permissions", exact: true }).click();
+  await page.getByText("Permissions enabled: Yes", { exact: true }).waitFor();
+  await page.getByRole("combobox", { name: "Microphone", exact: true }).waitFor();
+  mkdirSync(path.join(root, "scratch/verification"), { recursive: true });
+  await page.screenshot({ path: path.join(root, "scratch/verification/permissions.png") });
+  console.log("PASS: one permissions setting works without app accounts; microphone input selector is available.");
+  await page.getByText("Permissions", { exact: true }).click();
   await page.getByRole("textbox", { name: "Type a message" }).fill("Inspect a local task without connected accounts");
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await page.getByText(/Connect your OpenAI API key in Settings/).waitFor();

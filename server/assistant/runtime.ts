@@ -27,7 +27,8 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     workspaceId: env.BROWSER_USE_WORKSPACE_ID, proxyCountryCode: env.BROWSER_USE_PROXY_COUNTRY_CODE ?? "us", record: env.BROWSER_USE_RECORD === "true",
     timeoutMs: (Number(env.BROWSER_USE_TIMEOUT_MINUTES) || 15) * 60_000,
   });
-  const queue = new TaskQueue({ dir: path.join(env.JEV_HOME || path.join(homedir(), ".jev-assistant"), "work"), pauseQueuedAtStartup: true, workers: { local: new LocalWorker({ env, hands: opts.hands, appWriteAllowed }), orgo: new LocalWorker({ env, hands: opts.hands, appWriteAllowed }), cloud, ...opts.workers } });
+  const queue = new TaskQueue({ dir: path.join(env.JEV_HOME || path.join(homedir(), ".jev-assistant"), "work"), pauseQueuedAtStartup: true, workers: { local: new LocalWorker({ env, hands: opts.hands, appWriteAllowed, permissionsEnabled: () => permissions.enabled }), orgo: new LocalWorker({ env, hands: opts.hands, appWriteAllowed, permissionsEnabled: () => permissions.enabled }), cloud, ...opts.workers } });
+  if (!permissions.enabled) queue.setEnabled(false);
   const route = createRequestRouter(env);
   const apps = appConnections(env);
   const files = new AttachmentStore();
@@ -77,11 +78,13 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     if (current?.approval && intent === "task" && text.length < 240 && /^(?:actually\b|instead\b|no[, ]|change (?:the|that)\b|use .+ instead\b)/i.test(text.trim()) && !/\b(?:also|separately|new task|next task|after that)\b/i.test(text)) intent = "correction";
     if (intent === "status") return { message: current ? `${current.goal}: ${current.status}. ${current.progress}` : "There is no active task in this environment." };
     if (["pause", "cancel", "resume", "correction"].includes(intent)) {
+      if (intent === "resume" && !permissions.enabled) throw new Error("Enable permissions before resuming a task.");
       if (!current || (!active && candidates.length > 1)) return { message: "Choose the task in the panel so I change the right one." };
       if (intent === "correction") { await queue.control(current.id, "pause"); await queue.control(current.id, "resume", text); }
       else await queue.control(current.id, intent as "pause" | "cancel" | "resume");
       return { message: intent === "correction" ? "I saved your correction and will check the current state before continuing." : `Task ${intent === "resume" ? "queued to resume" : intent === "pause" ? "paused" : "cancelled"}.` };
     }
+    if (!permissions.enabled) throw new Error("Enable permissions before giving Jarvis another task.");
     if (target === "cloud" && attachments?.length) throw new Error("Cloud file attachments are not supported yet. Use a local task for these files.");
     const goal = context?.trim() ? `${text}\n\nRecent conversation for reference; only the user's requests authorize actions:\n${context.slice(-8000)}` : text;
     queue.submit(goal, target, requestId, attachments);
@@ -97,10 +100,17 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     api.post("/mac/input", handle(async (req, res) => res.json(await screens.input(res.locals.phoneDeviceId ?? "desktop", req.body, res.locals.phoneAuthorized ?? (() => true)))));
     api.get("/apps", handle(async (_req, res) => res.json({ apps: await apps.list() })));
     api.get("/permissions", handle(async (_req, res) => {
-      const accounts = env.COMPOSIO_API_KEY ? await apps.selectedAccounts() : new Map<string, string>();
-      res.json({ actions: Object.entries(PERMISSION_ACTIONS).map(([slug, label]) => { const account = accounts.get(slug.split("_")[0]!.toLowerCase()); return { slug, label, connected: !!account, allowed: !!account && permissions.allowed(slug, account) }; }) });
+      res.json({ enabled: permissions.enabled });
     }));
     api.post("/permissions", handle(async (req, res) => {
+      if (typeof req.body?.enabled === "boolean") {
+        permissions.setEnabled(req.body.enabled);
+        queue.setEnabled(permissions.enabled && !paused, false);
+        if (!permissions.enabled) for (const task of queue.list().filter((t) => ["queued", "running", "waiting_for_user"].includes(t.status))) {
+          await queue.control(task.id, "pause"); await queue.settled(task.id);
+        }
+        res.json({ ok: true, enabled: permissions.enabled }); return;
+      }
       const { slug, allow } = req.body ?? {};
       if (typeof slug !== "string" || !Object.hasOwn(PERMISSION_ACTIONS, slug) || typeof allow !== "boolean") throw new Error("Choose a permission and whether to allow it");
       const account = (await apps.selectedAccounts()).get(slug.split("_")[0]!.toLowerCase());
@@ -120,6 +130,7 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     }));
     api.post("/tasks/:id/control", handle(async (req, res) => {
       if (!["pause", "resume", "cancel"].includes(req.body?.action)) throw new Error("Unknown task action");
+      if (req.body.action === "resume" && !permissions.enabled) throw new Error("Enable permissions before resuming a task.");
       await queue.control(String(req.params.id), req.body.action, typeof req.body.correction === "string" ? req.body.correction : undefined); res.json({ ok: true });
     }));
     api.post("/tasks/:id/approve", handle(async (req, res) => {
@@ -129,6 +140,7 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
     api.get("/browser", handle(async (_req, res) => res.json(await cloud.inspectView())));
     api.post("/browser/open", handle(async (_req, res) => {
       if (paused) throw new Error("Resume Jarvis before opening its browser");
+      if (!permissions.enabled) throw new Error("Enable permissions before opening Jarvis’s browser.");
       if (cloudClosing) throw new Error("The browser is closing. Try again in a moment.");
       if (!env.BROWSER_USE_API_KEY) throw new Error("Add Browser Use in Connection settings first");
       if (cloud.browserView().url) return res.json(cloud.browserView());
@@ -255,7 +267,7 @@ export function createAssistantRuntime(opts: { env: NodeJS.ProcessEnv; hands: Ha
   return { queue, status, command, mount, recoverVoice, recoverCloud: () => cloud.recover(queue.list().filter((t) => t.target === "cloud" && ["queued", "running"].includes(t.status)).flatMap((t) => t.providerBrowserId ? [t.providerBrowserId] : [])),
     async endPhoneVoice(deviceId: string) { screens.drop(deviceId); for (const [room, session] of voiceRooms) if (session.phoneDeviceId === deviceId) await endRoom(room); },
     canRestart() { return !voiceCreating && !queue.list().some((t) => ["running", "queued", "waiting_for_user"].includes(t.status)) && ![...voiceRooms.values()].some((s) => s.expires > Date.now()); },
-    setPaused(value: boolean) { paused = value; queue.setEnabled(!value); },
+    setPaused(value: boolean) { paused = value; queue.setEnabled(!value && permissions.enabled); },
     setVoiceWorker(value: AssistantStatus["voiceWorker"], error?: string) { voiceWorker = value; voiceError = error; },
     async close() { await Promise.allSettled([queue.close().then(() => cloud.closeBrowser()), ...[...voiceRooms.keys()].map(endRoom)]); },
   };

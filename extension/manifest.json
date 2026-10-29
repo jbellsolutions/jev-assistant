@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Jarvis bridge",
-  "version": "0.4.0",
+  "version": "1.4.0",
   "description": "Lets the Jarvis assistant on this Mac act in your Chrome: the tab you are looking at, or its own minimized window in the background.",
   "permissions": [
     "tabs",

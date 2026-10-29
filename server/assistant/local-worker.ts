@@ -21,7 +21,7 @@ export function workerEnvironment(target: WorkTask["target"], hands: Hands) {
 
 export class LocalWorker implements TaskWorker {
   private running = new Map<string, { brain: Brain; runId: string }>();
-  constructor(private readonly opts: { env: NodeJS.ProcessEnv; hands: Hands; createBrain?: (task: WorkTask) => Brain; appWriteAllowed?: (slug: string, account: string) => boolean }) {}
+  constructor(private readonly opts: { env: NodeJS.ProcessEnv; hands: Hands; createBrain?: (task: WorkTask) => Brain; appWriteAllowed?: (slug: string, account: string) => boolean; permissionsEnabled?: () => boolean }) {}
   async run(task: WorkTask, ctx: WorkContext): ReturnType<TaskWorker["run"]> {
     if (!this.opts.createBrain && !this.opts.env.OPENAI_API_KEY?.trim()) throw new Error("Connect your OpenAI API key in Settings to enable Luna's local task worker. Instant controls remain available.");
     if (task.target === "orgo" && !this.opts.hands.orgo) throw new Error("Connect Orgo and choose its computer in Settings before using the co-founder's computer.");
@@ -41,7 +41,8 @@ export class LocalWorker implements TaskWorker {
       modelId: this.opts.env.JEV_BRAIN_MODEL || "gpt-6-luna", provider: "OpenAI", hands: environment.hands, ownTools: environment.ownTools,
       chat: new ChatStore(null), apps: createComposioApps(this.opts.env),
       appWriteAllowed: this.opts.appWriteAllowed,
-      instructions: () => `${brainInstructions()}\nYour user-facing name is Jarvis. TypeSafe Jev is your fast judgment model, not your assistant name.\n${environment.instruction}\nPrefer connected app APIs when the relevant action is available. Respect approval requests and the application's saved permissions. Never bypass an approval by editing settings through shell or browser tools. Verify important outcomes from returned IDs or observed page state. If resuming, inspect current state and avoid repeating completed actions. Finish the requested multi-step goal or explain the concrete blocker honestly.`,
+      permissionsEnabled: this.opts.permissionsEnabled,
+      instructions: () => `${brainInstructions()}\nYour user-facing name is Jarvis. TypeSafe Jev is your fast judgment model, not your assistant name.\n${environment.instruction}\nPrefer connected app APIs when the relevant action is available. When permissions are enabled, carry out the user's requested work without asking for routine tool confirmations. Stay within the requested task and selected environment. Ask for missing material details or new actions outside the user's scope. Respect approval requests and the application's saved permissions. Never bypass an approval by editing settings through shell or browser tools. Verify important outcomes from returned IDs or observed page state. If resuming, inspect current state and avoid repeating completed actions. Finish the requested multi-step goal or explain the concrete blocker honestly.`,
       limits: { maxSteps: 60, maxWallMs: 15 * 60000 },
     });
     let reason: JobEnd["reason"] | undefined;

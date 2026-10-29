@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, it } from "vitest";
@@ -21,9 +21,13 @@ it("remembers an explicitly selected app action only for the connected account a
   const home = mkdtempSync(path.join(tmpdir(), "jarvis-permissions-"));
   try {
     const permissions = new AppPermissions(home);
+    expect(permissions.enabled).toBe(true);
+    expect(permissions.allowed("SLACK_SEND_MESSAGE", "account-one")).toBe(true);
+    permissions.setEnabled(false);
     expect(permissions.allowed("SLACK_SEND_MESSAGE", "account-one")).toBe(false);
     permissions.set("SLACK_SEND_MESSAGE", "account-one", true);
     const restored = new AppPermissions(home);
+    expect(restored.enabled).toBe(false);
     expect(restored.allowed("SLACK_SEND_MESSAGE", "account-one")).toBe(true);
     expect(restored.allowed("SLACK_SEND_MESSAGE", "account-two")).toBe(false);
     expect(restored.allowed("GMAIL_SEND_EMAIL", "account-one")).toBe(false);
@@ -37,4 +41,12 @@ it("understands short spoken answers without treating quoted text or changed ins
   for (const phrase of ["Yes, send it.", "Yeah, go ahead", "Okay, please", "Go ahead and send it", "Approve that", "Yeah, that's fine", "Yes, go ahead and send that please", "Sounds good"]) expect(spokenApproval(phrase)).toBe("once");
   for (const phrase of ["No, don't send it", "Don't do that", "No thanks", "Cancel that action"]) expect(spokenApproval(phrase)).toBe("deny");
   for (const phrase of ["Tell him yes", 'The message says "yes"', "Yes but change the recipient", "Send it to another channel", "Always allow everything"]) expect(spokenApproval(phrase)).toBeNull();
+});
+
+it("does not broaden permissions when a saved setting is unreadable", () => {
+  const home = mkdtempSync(path.join(tmpdir(), "jarvis-permissions-corrupt-"));
+  try {
+    writeFileSync(path.join(home, "permissions.json"), "{broken");
+    expect(new AppPermissions(home).enabled).toBe(false);
+  } finally { rmSync(home, { recursive: true, force: true }); }
 });

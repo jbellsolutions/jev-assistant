@@ -3,6 +3,7 @@ import type { WorkTarget, WorkTask } from "../../core/assistant.ts";
 import { detectTransport, type Transport } from "./transport.ts";
 import { assistantFetch, useAssistant } from "./hooks/useAssistant.ts";
 import { useLiveVoice } from "./hooks/useLiveVoice.ts";
+import { VoiceInput } from "./components/VoiceInput.tsx";
 import { VoiceOrb } from "./components/VoiceOrb.tsx";
 import { CloudBrowser } from "./components/CloudBrowser.tsx";
 import { PhoneMacScreen } from "./components/PhoneMacScreen.tsx";
@@ -81,10 +82,11 @@ function ConnectedPhone({ transport, onUnpair }: { transport: Transport; onUnpai
       <label className="phone-target">WORK IN<select aria-label="Work environment" value={target} disabled={voice.state === "connecting" || busy} onChange={(e) => { void chooseTarget(e.target.value as WorkTarget).catch((e: Error) => setMessage(e.message)); }}><option value="local">My computer at home</option><option value="cloud">Jarvis browser</option>{status?.connections.orgo && <option value="orgo">Co-founder’s computer</option>}</select></label>
       {target === "local" && <p className="phone-mac-readiness">Mac controls {status?.connections.computer ? "available" : "unavailable — check Cua Driver permissions on the Mac"} · Chrome {status?.connections.chrome ? "connected" : "not connected"}. Open the Mac tab to verify the live picture.</p>}
       {tab === "talk" && <>
-        <section className="phone-conversation"><div className="phone-kicker">AT YOUR SERVICE</div><h1>{voice.state === "on" ? "I’m listening." : "What’s on your mind?"}</h1><p>{target === "local" ? "Jarvis will work on your Mac at home." : target === "orgo" ? "Jarvis will work on the co-founder’s computer." : "Jarvis will look things up and work in its own browser."}</p>
-          <VoiceOrb state={voice.state} speaking={voice.speaking} userSpeaking={voice.userSpeaking} visible={visible} />
+        <section className="phone-conversation"><div className="phone-kicker">AT YOUR SERVICE</div><h1>{voice.state === "on" ? voice.inputProblem ? "Check your microphone." : "I’m listening." : "What’s on your mind?"}</h1><p>{target === "local" ? "Jarvis will work on your Mac at home." : target === "orgo" ? "Jarvis will work on the co-founder’s computer." : "Jarvis will look things up and work in its own browser."}</p>
+          <VoiceOrb state={voice.state} speaking={voice.speaking} userSpeaking={voice.userSpeaking} inputProblem={voice.inputProblem} visible={visible} />
           <button className={`phone-primary phone-talk ${voice.state}`} disabled={!connected && voice.state === "off"} onClick={() => void (voice.state === "off" ? voice.start() : voice.stop())}>{voice.state === "off" ? "Talk to Jarvis" : voice.state === "connecting" ? "Cancel connection" : "End conversation"}</button>
           {voice.needsAudio && <button onClick={() => void voice.enableAudio()}>Tap to enable sound</button>}
+          <VoiceInput voice={voice} />
           <small>Voice ends when you leave this app. Your tasks keep running.</small>
         </section>
         {!!voice.transcripts.length && <div className="phone-transcripts" aria-live="polite">{voice.transcripts.map((t) => <p key={t.id}><b>{t.who === "Jev" ? "Jarvis" : t.who}</b>{t.text}</p>)}</div>}

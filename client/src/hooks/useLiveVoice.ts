@@ -11,6 +11,43 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
   const [speaking, setSpeaking] = useState(false);
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [needsAudio, setNeedsAudio] = useState(false);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [inputDevice, setInputDevice] = useState(() => { try { return localStorage.getItem("jarvis-microphone") || "default"; } catch { return "default"; } });
+  const [inputLevel, setInputLevel] = useState(0);
+  const [inputStatus, setInputStatus] = useState("");
+  const [inputBusy, setInputBusy] = useState(false);
+  const retrying = useRef(false);
+  const meterCleanup = useRef<(() => void) | null>(null);
+  const refreshDevices = useCallback(async () => {
+    try { setDevices((await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audioinput")); } catch {}
+  }, []);
+  const watchMicrophone = useCallback(async (room: Room, media: MediaStreamTrack) => {
+    meterCleanup.current?.();
+    if (media.readyState !== "live" || !media.enabled) throw new Error("The microphone is not sending audio. Choose an input and retry the microphone.");
+    const context = new AudioContext();
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const source = context.createMediaStreamSource(new MediaStream([media]));
+    const analyser = context.createAnalyser(); analyser.fftSize = 512;
+    source.connect(analyser);
+    const samples = new Float32Array(analyser.fftSize);
+    const openedAt = Date.now(); let heardSound = false;
+    const ended = () => { if (roomRef.current === room) { setInputLevel(0); setInputStatus("Microphone disconnected. Choose an input and retry the microphone."); } };
+    media.addEventListener("ended", ended);
+    meterCleanup.current = () => { clearInterval(timer); media.removeEventListener("ended", ended); source.disconnect(); void context.close().catch(() => {}); };
+    await context.resume();
+    if (roomRef.current !== room) return;
+    setInputStatus("Speak to test your microphone.");
+    timer = setInterval(() => {
+      if (roomRef.current !== room) return;
+      analyser.getFloatTimeDomainData(samples);
+      const rms = Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length);
+      setInputLevel(Math.min(1, rms * 8));
+      if (rms > 0.003) { heardSound = true; setInputStatus("Microphone is receiving sound."); }
+      else if (media.readyState !== "live" || media.muted || !media.enabled) setInputStatus("Microphone is unavailable or muted. Choose an input and retry the microphone.");
+      else if (!heardSound && Date.now() - openedAt > 8000) setInputStatus("No microphone sound detected. Check your input or retry the microphone.");
+    }, 100);
+    await refreshDevices();
+  }, [refreshDevices]);
   const [transcripts, setTranscripts] = useState<Array<{ id: string; who: string; text: string }>>([]);
   const roomRef = useRef<Room | null>(null);
   const serverRoom = useRef("");
@@ -24,6 +61,7 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
     generation.current++;
     const room = roomRef.current; roomRef.current = null;
     const name = serverRoom.current; serverRoom.current = "";
+    meterCleanup.current?.(); meterCleanup.current = null; setInputLevel(0); setInputStatus("");
     setState("off"); setSpeaking(false); setUserSpeaking(false); setNeedsAudio(false);
     for (const el of audio.current) el.remove(); audio.current.clear();
     await room?.disconnect();
@@ -79,12 +117,50 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
       await room.startAudio().catch(() => {});
       setNeedsAudio(!room.canPlaybackAudio);
       if (gen !== generation.current) return;
-      await room.localParticipant.setMicrophoneEnabled(true);
+      let publication;
+      try { publication = await room.localParticipant.setMicrophoneEnabled(true, { deviceId: inputDevice, echoCancellation: true, noiseSuppression: true, autoGainControl: true }); }
+      catch (e) {
+        if (inputDevice === "default" || !(e instanceof Error) || !["NotFoundError", "OverconstrainedError"].includes(e.name)) throw e;
+        setInputDevice("default"); try { localStorage.removeItem("jarvis-microphone"); } catch {}
+        publication = await room.localParticipant.setMicrophoneEnabled(true, { echoCancellation: true, noiseSuppression: true, autoGainControl: true });
+      }
+      if (!publication?.track || publication.isMuted) throw new Error("The microphone did not start. Choose an input and try again.");
       if (gen !== generation.current) { await room.localParticipant.setMicrophoneEnabled(false); return; }
+      await watchMicrophone(room, publication.track.mediaStreamTrack);
+      if (gen !== generation.current) return;
       lastActivity.current = Date.now(); setState("on");
-    } catch (e) { if (gen === generation.current) { await stop(); setError(e instanceof Error ? e.message : "Voice could not connect"); } }
+    } catch (e) { if (gen === generation.current) { await stop(); setError(e instanceof Error && e.name === "NotAllowedError" ? "Microphone access was denied. Allow Jarvis in System Settings → Privacy & Security → Microphone, then try again." : e instanceof Error ? e.message : "Voice could not connect"); } }
     finally { inFlight.current = false; }
-  }, [transport, target, paused, stop]);
+  }, [transport, target, paused, stop, inputDevice, watchMicrophone]);
+  const retryMicrophone = useCallback(async (deviceId = inputDevice) => {
+    const room = roomRef.current;
+    if (!room || state !== "on" || retrying.current) return;
+    retrying.current = true; setInputBusy(true);
+    setInputStatus("Reconnecting microphone…");
+    try {
+      // Recreate capture rather than merely unmuting a dead track.
+      await room.localParticipant.setMicrophoneEnabled(false);
+      const publication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+      if (publication?.track) await room.localParticipant.unpublishTrack(publication.track, true);
+      if (roomRef.current !== room) return;
+      const next = await room.localParticipant.setMicrophoneEnabled(true, { deviceId, echoCancellation: true, noiseSuppression: true, autoGainControl: true });
+      if (roomRef.current !== room) return;
+      if (!next?.track || next.isMuted) throw new Error("The microphone did not start.");
+      await watchMicrophone(room, next.track.mediaStreamTrack);
+      setError("");
+    } catch { if (roomRef.current === room) setInputStatus("Could not open this microphone. Choose another input and retry."); }
+    finally { retrying.current = false; setInputBusy(false); }
+  }, [state, inputDevice, watchMicrophone]);
+  const changeInput = useCallback(async (deviceId: string) => {
+    if (retrying.current) return;
+    setInputDevice(deviceId); try { localStorage.setItem("jarvis-microphone", deviceId); } catch {}
+    await retryMicrophone(deviceId);
+  }, [retryMicrophone]);
+  useEffect(() => {
+    void refreshDevices();
+    navigator.mediaDevices?.addEventListener("devicechange", refreshDevices);
+    return () => navigator.mediaDevices?.removeEventListener("devicechange", refreshDevices);
+  }, [refreshDevices]);
   useEffect(() => { for (const el of audio.current) el.muted = muted || hushFlag.current; }, [muted]);
   useEffect(() => { if (paused) void stop(); }, [paused, stop]);
   useEffect(() => {
@@ -106,5 +182,5 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
   const hush = useCallback(() => { hushFlag.current = true; for (const el of audio.current) el.muted = true; setSpeaking(false); }, []);
   const changeTarget = useCallback(async (next: WorkTarget) => { const name = serverRoom.current; if (name) await assistantFetch(transport, "/voice/target", { room: name, target: next }); }, [transport]);
   const enableAudio = useCallback(async () => { try { await roomRef.current?.startAudio(); setNeedsAudio(roomRef.current ? !roomRef.current.canPlaybackAudio : false); } catch { setError("Tap to enable sound again, and check your phone’s audio output."); } }, []);
-  return { state, error, speaking, userSpeaking, transcripts, start, stop, hush, changeTarget, needsAudio, enableAudio };
+  return { state, error, speaking, userSpeaking, transcripts, start, stop, hush, changeTarget, needsAudio, enableAudio, devices, inputDevice, inputLevel, inputStatus, inputBusy, inputProblem: /^(No microphone|Microphone (?:disconnected|is unavailable)|Could not open)/.test(inputStatus), changeInput, retryMicrophone };
 }

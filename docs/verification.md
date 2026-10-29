@@ -1,5 +1,15 @@
 # Phase 1 verification
 
+## Jarvis 1.4 permissions and microphone input
+
+The current unit suite passes **934 tests in 78 files**, plus TypeScript and renderer builds. Added checks cover a permissions setting that is independent of optional accounts, authenticated setting changes, persistence, corrupt-setting behavior, owner versus co-founder permissions, revocation, pausing active/queued tasks and blocked resume/browser startup while disabled.
+
+The Chromium microphone smoke runs the actual React hook and Web Audio analyser with a synthetic room. It verifies nonzero input, silence detection, capture recreation, cleanup and honest missing/denied-microphone failures. It uses no physical microphone or provider calls.
+
+Separately, the actual built renderer connected through the existing LiveKit/GPT-Live accounts, captured generated speech through Chromium’s synthetic microphone, displayed input activity, received the arithmetic answer and advanced the return-audio playback element. Test-room deletion was independently confirmed. This validates the application voice path with synthetic input; the reported physical microphone issue is not claimed fixed on the owner’s hardware until a new human conversation succeeds.
+
+See [1.4 changes](jarvis-1.4.md). Previous sections below describe their respective historical releases.
+
 ## Jarvis 1.3 Mac access from the phone
 
 The 1.3.1 release checks cover **929 tests in 78 files**, TypeScript and the renderer build. New coverage includes per-device Mac picture/input isolation, stale frames, duplicate input IDs, invalid coordinates/keys, revocation during capture, manual takeover blocking, unique capture files, explicit foreground manual delivery, native primary-display coordinate mapping, screenshot model output/display fallback and actual voice environment updates. The local worker checks the Mac before answering local requests and masks credential-like text in that preflight observation.
