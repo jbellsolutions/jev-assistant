@@ -33,6 +33,18 @@ try {
     await page.getByRole("alert").filter({ hasText: message }).waitFor();
     assert.equal(await page.locator('[data-state]').innerText(), "off");
   }
+  await page.addInitScript(() => {
+    const Native = window.AudioContext; let created = 0;
+    window.AudioContext = class extends Native {
+      constructor(...args) { super(...args); this.meter = ++created === 2; }
+      get state() { return this.meter ? "suspended" : super.state; }
+      resume() { return this.meter ? new Promise(() => {}) : super.resume(); }
+    };
+  });
+  await page.goto(`${base}?suspended`); await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByText("Tap to enable sound to check microphone input.", { exact: true }).waitFor();
+  assert.equal(await page.locator('[data-state]').innerText(), "on");
+  await page.getByRole("button", { name: "Stop", exact: true }).click();
   assert.deepEqual(errors, []);
-  console.log("PASS: real React voice input shows synthetic sound, detects silence, recreates capture on retry, cleans up on stop and rejects missing/denied microphones. No physical microphone or provider calls.");
+  console.log("PASS: real React voice input shows synthetic sound, detects silence, recreates capture on retry, cleans up on stop and rejects missing/denied microphones and avoids hanging on a suspended meter. No physical microphone or provider calls.");
 } finally { await browser.close(); await new Promise(r => server.close(r)); }

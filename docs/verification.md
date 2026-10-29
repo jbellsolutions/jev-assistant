@@ -8,6 +8,8 @@ The Chromium microphone smoke runs the actual React hook and Web Audio analyser 
 
 Separately, the actual built renderer connected through the existing LiveKit/GPT-Live accounts, captured generated speech through Chromium’s synthetic microphone, displayed input activity, received the arithmetic answer and advanced the return-audio playback element. Test-room deletion was independently confirmed. This validates the application voice path with synthetic input; the reported physical microphone issue is not claimed fixed on the owner’s hardware until a new human conversation succeeds.
 
+The first 1.4 GitHub check passed 933 tests and found a timing failure in the retained wake-mode test: its fixed delay could finish before the fake provider’s nested close event on a loaded runner. The test now waits for the actual utterance with a bounded poll. That failed run is retained and is not counted as a pass. A repeated live check also overlapped runtime rebuilding and could not launch the executable; live checks must run after builds finish.
+
 See [1.4 changes](jarvis-1.4.md). Previous sections below describe their respective historical releases.
 
 ## Jarvis 1.3 Mac access from the phone

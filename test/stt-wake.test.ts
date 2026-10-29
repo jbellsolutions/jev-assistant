@@ -213,7 +213,7 @@ describe("wake mode: what it refuses to hear", () => {
     expect(transcriber.bytes).toBe(4 * 3200); // but the buffer kept all of it
     said("turn Spotify down");
     await settle();
-    expect(utterances()).toEqual(["turn Spotify down"]);
+    await expect.poll(utterances, { timeout: 2000 }).toEqual(["turn Spotify down"]);
   });
 
   it("obeys one command per wake, not a whole conversation", async () => {

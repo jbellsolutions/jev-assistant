@@ -18,13 +18,14 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
   const [inputBusy, setInputBusy] = useState(false);
   const retrying = useRef(false);
   const meterCleanup = useRef<(() => void) | null>(null);
+  const meterContext = useRef<AudioContext | null>(null);
   const refreshDevices = useCallback(async () => {
     try { setDevices((await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audioinput")); } catch {}
   }, []);
   const watchMicrophone = useCallback(async (room: Room, media: MediaStreamTrack) => {
     meterCleanup.current?.();
     if (media.readyState !== "live" || !media.enabled) throw new Error("The microphone is not sending audio. Choose an input and retry the microphone.");
-    const context = new AudioContext();
+    const context = new AudioContext(); meterContext.current = context;
     let timer: ReturnType<typeof setInterval> | undefined;
     const source = context.createMediaStreamSource(new MediaStream([media]));
     const analyser = context.createAnalyser(); analyser.fftSize = 512;
@@ -33,12 +34,14 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
     const openedAt = Date.now(); let heardSound = false;
     const ended = () => { if (roomRef.current === room) { setInputLevel(0); setInputStatus("Microphone disconnected. Choose an input and retry the microphone."); } };
     media.addEventListener("ended", ended);
-    meterCleanup.current = () => { clearInterval(timer); media.removeEventListener("ended", ended); source.disconnect(); void context.close().catch(() => {}); };
-    await context.resume();
+    meterCleanup.current = () => { if (meterContext.current === context) meterContext.current = null; clearInterval(timer); media.removeEventListener("ended", ended); source.disconnect(); void context.close().catch(() => {}); };
+    // Safari can defer resume until another gesture. Capture must not wait for the meter.
+    void context.resume().catch(() => {});
     if (roomRef.current !== room) return;
     setInputStatus("Speak to test your microphone.");
     timer = setInterval(() => {
       if (roomRef.current !== room) return;
+      if (context.state !== "running") { setInputStatus("Tap to enable sound to check microphone input."); setNeedsAudio(true); return; }
       analyser.getFloatTimeDomainData(samples);
       const rms = Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length);
       setInputLevel(Math.min(1, rms * 8));
@@ -181,6 +184,6 @@ export function useLiveVoice(transport: Transport, target: WorkTarget, paused: b
   }, [stop]);
   const hush = useCallback(() => { hushFlag.current = true; for (const el of audio.current) el.muted = true; setSpeaking(false); }, []);
   const changeTarget = useCallback(async (next: WorkTarget) => { const name = serverRoom.current; if (name) await assistantFetch(transport, "/voice/target", { room: name, target: next }); }, [transport]);
-  const enableAudio = useCallback(async () => { try { await roomRef.current?.startAudio(); setNeedsAudio(roomRef.current ? !roomRef.current.canPlaybackAudio : false); } catch { setError("Tap to enable sound again, and check your phone’s audio output."); } }, []);
+  const enableAudio = useCallback(async () => { try { await Promise.all([roomRef.current?.startAudio(), meterContext.current?.resume()]); setNeedsAudio(roomRef.current ? !roomRef.current.canPlaybackAudio : false); } catch { setError("Tap to enable sound again, and check your phone’s audio output."); } }, []);
   return { state, error, speaking, userSpeaking, transcripts, start, stop, hush, changeTarget, needsAudio, enableAudio, devices, inputDevice, inputLevel, inputStatus, inputBusy, inputProblem: /^(No microphone|Microphone (?:disconnected|is unavailable)|Could not open)/.test(inputStatus), changeInput, retryMicrophone };
 }
