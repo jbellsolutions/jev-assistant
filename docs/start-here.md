@@ -53,13 +53,13 @@ Choose **My computer**, **Jarvis browser**, or **Co-founder's computer**. Jarvis
 
 Use **↗ Resize** for a large workspace or compact panel. You can drag window edges too; Jarvis remembers the size. **Option+Space** shows or hides it.
 
-For app tools, add Composio, restart, then choose **Refresh connected apps → Connect**. Finish authorization in your browser. Sends and changes ask for approval.
+For app tools, add Composio, restart, then choose **Refresh connected apps → Connect**. Finish authorization in your browser. Actions follow the saved **Permissions enabled** setting.
 
 ## Voice approvals and permissions
 
-Jarvis asks pending approval questions aloud during a live conversation. Answer “yes, send it,” “go ahead,” or “no.” Your reply applies to the action just presented. A changed request needs a new review.
+Open **Permissions** to see **Permissions enabled: Yes**. This lets Jarvis carry out your requests on the selected computer, in its browser and through connected apps without app-by-app checkboxes or routine tool confirmations. It does not depend on optional Composio accounts being connected. Your chosen environment, available connections and macOS grants still determine where Jarvis can work.
 
-Open **Permissions** to allow routine Slack, email or ClickUp API actions on the connected account without asking each time. These switches require that app to be connected through Composio. Browser and Mac writes still ask by voice. Normal macOS privacy permissions are managed separately.
+**Turn permissions off** pauses active tasks and blocks new work until enabled again. It does not undo actions already completed or in flight. If Jarvis needs material details or authorization outside your request, answer its concrete question by voice or in the panel. Normal macOS privacy permissions are managed separately.
 
 ## Your workspace and browser
 
@@ -79,8 +79,6 @@ Choose **Your screen** for the Mac or your connected Chrome tab, or **Co-founder
 
 For iPhone, open **Connect iPhone** on the Mac and follow [Phone setup](phone.md). Pair your phone, then save Jarvis to your Home Screen. Select **Jarvis browser** for cloud research/work or **My computer at home** for your Mac. Tunnel setup is separate; this installer does not create a public URL.
 
-## Microphone and permissions
-
-Permissions shows **Permissions enabled: Yes** for the work you request. There are no app-by-app permission checkboxes. **Turn permissions off** pauses active tasks and blocks new work until enabled again. Your selected environment still determines which computer or browser Jarvis uses. macOS may require its own Microphone, Accessibility and Screen Recording grants; the app cannot replace those system dialogs.
+## Microphone input
 
 Choose the input under **Microphone**, start a conversation and speak. The input meter should move and report that it is receiving sound. If it stays flat, select the microphone you use or press **Retry microphone**. The retry recreates audio capture while keeping the conversation open. Allow Jarvis under System Settings → Privacy & Security → Microphone if access was denied.
